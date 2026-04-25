@@ -1756,6 +1756,14 @@ document.getElementById('new-trip-name-input').addEventListener('keydown', e => 
 document.getElementById('new-trip-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('new-trip-modal')) closeModal();
 });
+
+// ── Service Worker ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sojourn/sw.js')
+      .catch(err => console.warn('SW registration failed:', err));
+  });
+}
 </script>
 </body>
 </html>
