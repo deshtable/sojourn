@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Sojourn — Plan Your Journey</title>
+<meta name="theme-color" content="#4D6B53" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Sojourn" />
+<link rel="manifest" href="manifest.json" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet" />
@@ -836,6 +841,101 @@
   .pac-matched { font-weight: 500; color: var(--sage); }
   .pac-icon { display: none; }
   .pac-logo::after { display: none; }
+
+  /* ── Mobile bottom nav ── */
+  .mobile-nav {
+    display: none;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--white);
+    border-top: 1px solid var(--border);
+    padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+    z-index: 200;
+    flex-shrink: 0;
+  }
+  .mob-nav-items { display: flex; justify-content: space-around; }
+  .mob-nav-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: none; border: none; cursor: pointer; padding: 6px 20px;
+    color: var(--muted); font-family: var(--font-body); font-size: 10px;
+    font-weight: 500; letter-spacing: .3px; text-transform: uppercase;
+    min-width: 72px; transition: var(--transition);
+  }
+  .mob-nav-btn svg { stroke: currentColor; }
+  .mob-nav-btn.active { color: var(--sage); }
+
+  /* Mobile map back button */
+  .mobile-back-btn {
+    display: none; align-items: center; gap: 6px;
+    background: none; border: none; cursor: pointer;
+    color: var(--sage); font-family: var(--font-body);
+    font-size: 14px; font-weight: 500; padding: 4px 0;
+    flex-shrink: 0;
+  }
+
+  /* ── Mobile responsive ── */
+  @media (max-width: 768px) {
+    /* Nav */
+    .topnav { padding: 0 12px; gap: 8px; height: 52px; }
+    .nav-logo { font-size: 22px; }
+    .nav-trip-select { margin-left: 8px; max-width: none; flex: 1; }
+    .nav-spacer { display: none; }
+    .btn-export { display: none; }
+    .user-name { display: none; }
+    .user-pill { padding: 3px; border-radius: 50%; }
+
+    /* Layout: single column, sidebar fills screen */
+    .main-layout { grid-template-columns: 1fr; }
+
+    /* Sidebar: full width, bottom-padded for mobile nav */
+    .sidebar { border-right: none; }
+    .sidebar-top { padding: 14px 14px 0; }
+    .sidebar-body { padding-bottom: 80px; } /* room for mobile nav */
+    .trip-name-input { font-size: 20px; }
+    .trip-date-range { margin-bottom: 8px; }
+
+    /* Hide desktop tabs — bottom nav handles this */
+    .tabs { display: none; }
+
+    /* Map panel: full-screen fixed overlay, hidden by default */
+    .map-panel {
+      display: none;
+      position: fixed; inset: 0;
+      z-index: 300;
+      flex-direction: column;
+    }
+    .map-panel.mobile-open { display: flex; }
+
+    /* Map toolbar: show back button */
+    .mobile-back-btn { display: flex; }
+    .map-toolbar { padding: 10px 14px; gap: 8px; }
+    .map-title { font-size: 14px; }
+    .map-stops-badge { display: none; }
+    .btn-route { padding: 8px 12px; font-size: 12px; }
+
+    /* Route summary: scrollable on mobile */
+    .route-summary { overflow-x: auto; flex-wrap: nowrap; padding: 6px 14px; }
+    .route-sum-chip { white-space: nowrap; }
+
+    /* Bottom nav visible */
+    .mobile-nav { display: block; }
+
+    /* Destination cards: larger touch targets */
+    .dest-header { padding: 16px 14px 12px; }
+    .icon-btn { padding: 8px 10px; font-size: 16px; }
+    .open-add-btn { padding: 16px; font-size: 14px; }
+
+    /* Summary bar: compact */
+    .summary-bar { padding: 8px 14px; gap: 14px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+    .sum-val { font-size: 14px; }
+    .sum-label { font-size: 9px; }
+
+    /* Add form: full comfortable layout */
+    .add-form { padding: 14px; }
+    .form-input { padding: 11px 12px; font-size: 15px; }
+
+    /* Modal: full-screen on mobile */
+    .modal { width: calc(100vw - 32px); max-height: 90vh; overflow-y: auto; }
+  }
 </style>
 </head>
 <body>
@@ -906,8 +1006,12 @@
     </div>
 
     <!-- Map -->
-    <div class="map-panel">
+    <div class="map-panel" id="map-panel">
       <div class="map-toolbar">
+        <button class="mobile-back-btn" onclick="hideMobileMap()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
         <span class="map-title" id="map-title">Route Map</span>
         <span class="map-stops-badge" id="map-stops-badge">0 stops</span>
         <button class="btn-route" onclick="showRoute()">
@@ -926,6 +1030,24 @@
       </div>
     </div>
   </div>
+
+  <!-- Mobile bottom navigation -->
+  <nav class="mobile-nav">
+    <div class="mob-nav-items">
+      <button class="mob-nav-btn active" id="mob-btn-destinations" onclick="mobileSwitchTab('destinations')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 00-8 8c0 5.4 7.05 11.5 7.7 12.06a.5.5 0 00.6 0C12.95 21.5 20 15.4 20 10a8 8 0 00-8-8z"/></svg>
+        Stops
+      </button>
+      <button class="mob-nav-btn" id="mob-btn-hotels" onclick="mobileSwitchTab('hotels')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Hotels
+      </button>
+      <button class="mob-nav-btn" id="mob-btn-map" onclick="mobileSwitchTab('map')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+        Map
+      </button>
+    </div>
+  </nav>
 </div>
 
 <!-- New Trip Modal -->
@@ -1491,6 +1613,31 @@ function attachDragListeners() {
   });
 }
 
+// ── Mobile nav ──
+function mobileSwitchTab(tab) {
+  document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
+  if (tab === 'map') {
+    document.getElementById('mob-btn-map').classList.add('active');
+    showMobileMap();
+  } else {
+    hideMobileMap();
+    switchTab(tab);
+    const btn = tab === 'hotels' ? 'mob-btn-hotels' : 'mob-btn-destinations';
+    document.getElementById(btn).classList.add('active');
+  }
+}
+function showMobileMap() {
+  document.getElementById('map-panel').classList.add('mobile-open');
+}
+function hideMobileMap() {
+  document.getElementById('map-panel').classList.remove('mobile-open');
+  // Restore active tab button
+  const isHotels = activeTab === 'hotels';
+  document.getElementById('mob-btn-destinations').classList.toggle('active', !isHotels);
+  document.getElementById('mob-btn-hotels').classList.toggle('active', isHotels);
+  document.getElementById('mob-btn-map').classList.remove('active');
+}
+
 // ── Map ──
 function clearRoute() {
   routeLegs = [];
@@ -1535,6 +1682,8 @@ function showRoute() {
       const from = destinations[0].name.split(',')[0];
       const to = destinations[destinations.length - 1].name.split(',')[0];
       document.getElementById('map-title').textContent = `${from} → ${to}`;
+
+      if (window.innerWidth <= 768) showMobileMap();
 
       applyRouteLegs(result.routes[0].legs);
 
