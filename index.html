@@ -1228,7 +1228,7 @@ function renderDestinations() {
     <div class="dest-card" draggable="true" data-id="${d.id}">
       <div class="dest-header">
         <span class="drag-handle">⠿</span>
-        <div class="stop-num ${d.hasHotel ? 'has-hotel' : ''}">${i + 1}</div>
+        <div class="stop-num ${d.hasHotel ? 'has-hotel' : ''}">${String.fromCharCode(65 + i)}</div>
         <div class="dest-info">
           <input class="dest-name-input" value="${esc(d.name)}" placeholder="Destination name"
             onchange="updateDestField('${d.id}','name',this.value)" />
