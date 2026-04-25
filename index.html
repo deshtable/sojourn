@@ -800,6 +800,43 @@
   .print-header h1 { font-family: var(--font-display); font-size: 36px; margin-bottom: 6px; }
   .print-header p { color: var(--muted); font-size: 13px; }
 
+  /* Share button */
+  .share-btn {
+    background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 5px 8px; cursor: pointer; color: var(--muted); display: flex; align-items: center;
+    flex-shrink: 0; transition: var(--transition);
+  }
+  .share-btn:hover { color: var(--sage); border-color: var(--sage); background: var(--sage-light); }
+
+  /* Collaborator list */
+  .collab-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .collab-item:last-child { border-bottom: none; }
+  .collab-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--sage-light); color: var(--sage);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 500; flex-shrink: 0;
+  }
+  .collab-info { flex: 1; min-width: 0; }
+  .collab-name { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .collab-role { font-size: 11px; color: var(--muted); text-transform: capitalize; }
+  .collab-role-select {
+    font-size: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 4px 6px; font-family: var(--font-body); color: var(--ink); background: var(--cream);
+  }
+
+  /* Viewer mode banner */
+  .viewer-banner {
+    background: var(--rust-light); border: 1px solid #FCD34D; border-radius: var(--radius-sm);
+    padding: 8px 12px; font-size: 12px; color: var(--rust); margin-bottom: 10px; text-align: center;
+  }
+
+  /* Shared trip indicator in selector */
+  .trip-selector option[data-shared]::after { content: ' (shared)'; }
+
   /* ── Saving indicator ── */
   .saving-dot {
     width: 7px; height: 7px;
@@ -989,6 +1026,12 @@
       <div class="sidebar-top">
         <div class="trip-name-row">
           <input class="trip-name-input" id="trip-name-input" placeholder="Name your trip..." onchange="updateTripName(this.value)" />
+          <button class="share-btn" onclick="openShareModal()" title="Share trip">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+          </button>
         </div>
         <div id="trip-date-range" class="trip-date-range"></div>
         <div class="tabs">
@@ -1067,6 +1110,23 @@
   </div>
 </div>
 
+<!-- Share Modal -->
+<div class="modal-backdrop" id="share-modal">
+  <div class="modal">
+    <h2>Share trip</h2>
+    <p>Anyone with this link can join as an editor. You can change their role after they join.</p>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <input class="form-input" id="share-link-input" readonly style="margin-bottom:0;font-size:11px;color:var(--muted)" />
+      <button class="btn-primary" onclick="copyShareLink()" style="white-space:nowrap;flex-shrink:0">Copy link</button>
+    </div>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:10px">Collaborators</div>
+    <div id="collab-list"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeShareModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -1099,6 +1159,7 @@ const MAPS_KEY = "AIzaSyCxuOLOzSFbrsqk9LTi92A5aPP1zYQEQWo";
 let currentUser = null;
 let trips = [];
 let currentTripId = null;
+let currentTripRole = 'owner';
 let currentTripStartDate = '';
 let currentTripEndDate = '';
 let destinations = [];
@@ -1133,6 +1194,13 @@ auth.onAuthStateChanged(async user => {
       avatarEl.textContent = (user.displayName || 'U')[0].toUpperCase();
     }
     await loadTrips();
+    const params = new URLSearchParams(window.location.search);
+    const joinId = params.get('join');
+    const joinToken = params.get('token');
+    if (joinId && joinToken) {
+      window.history.replaceState({}, '', window.location.pathname);
+      await joinTrip(joinId, joinToken);
+    }
   } else {
     currentUser = null;
     document.getElementById('auth-screen').classList.remove('hidden');
@@ -1145,14 +1213,59 @@ function signOut() {
 }
 
 // ── Firestore ──
-function tripsRef() {
-  return db.collection('users').doc(currentUser.uid).collection('trips');
+function generateToken() {
+  return Math.random().toString(36).slice(2,9) + Math.random().toString(36).slice(2,9);
+}
+
+async function migrateOldTrips() {
+  const oldRef = db.collection('users').doc(currentUser.uid).collection('trips');
+  const snap = await oldRef.get();
+  if (snap.empty) return;
+  for (const doc of snap.docs) {
+    const exists = await db.collection('trips').doc(doc.id).get();
+    if (!exists.exists) {
+      await db.collection('trips').doc(doc.id).set({
+        ...doc.data(),
+        ownerId: currentUser.uid,
+        ownerName: currentUser.displayName || '',
+        collaborators: {}, collaboratorIds: [],
+        shareToken: generateToken()
+      });
+      const destSnap = await oldRef.doc(doc.id).collection('destinations').get();
+      if (!destSnap.empty) {
+        const batch = db.batch();
+        destSnap.docs.forEach(d => batch.set(db.collection('trips').doc(doc.id).collection('destinations').doc(d.id), d.data()));
+        await batch.commit();
+      }
+    }
+    await oldRef.doc(doc.id).delete();
+  }
 }
 
 async function loadTrips() {
   try {
-    const snap = await tripsRef().orderBy('updatedAt', 'desc').get();
-    trips = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    await migrateOldTrips();
+    const uid = currentUser.uid;
+    const [ownedSnap, collabSnap] = await Promise.all([
+      db.collection('trips').where('ownerId','==',uid).orderBy('updatedAt','desc').get(),
+      db.collection('trips').where('collaboratorIds','array-contains',uid).orderBy('updatedAt','desc').get()
+    ]);
+    const seen = new Set();
+    const merged = [];
+    for (const snap of [ownedSnap, collabSnap]) {
+      for (const d of snap.docs) {
+        if (!seen.has(d.id)) {
+          seen.add(d.id);
+          merged.push({ id: d.id, ...d.data() });
+        }
+      }
+    }
+    merged.sort((a, b) => {
+      const at = a.updatedAt?.toMillis?.() || 0;
+      const bt = b.updatedAt?.toMillis?.() || 0;
+      return bt - at;
+    });
+    trips = merged;
     if (trips.length === 0) {
       await createNewTripWithName('My First Trip');
     } else {
@@ -1170,13 +1283,19 @@ async function loadTrip(tripId) {
   currentTripId = tripId;
   const tripDoc = trips.find(t => t.id === tripId);
   if (!tripDoc) return;
+  // Determine role
+  if (tripDoc.ownerId === currentUser.uid || !tripDoc.ownerId) {
+    currentTripRole = 'owner';
+  } else {
+    currentTripRole = tripDoc.collaborators?.[currentUser.uid]?.role || 'viewer';
+  }
   document.getElementById('trip-name-input').value = tripDoc.name || 'Untitled Trip';
   document.getElementById('print-trip-name').textContent = tripDoc.name || 'Untitled Trip';
   currentTripStartDate = tripDoc.startDate || '';
   currentTripEndDate = tripDoc.endDate || '';
   updateTripDateRange();
 
-  const snap = await tripsRef().doc(tripId).collection('destinations').orderBy('order').get();
+  const snap = await db.collection('trips').doc(tripId).collection('destinations').orderBy('order').get();
   destinations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   renderAll();
 }
@@ -1191,9 +1310,10 @@ function scheduleSave() {
 
 async function saveCurrentTrip() {
   if (!currentUser || !currentTripId) return;
+  if (currentTripRole === 'viewer') return;
   try {
     const tripName = document.getElementById('trip-name-input').value || 'Untitled Trip';
-    await tripsRef().doc(currentTripId).set({
+    await db.collection('trips').doc(currentTripId).set({
       name: tripName,
       startDate: currentTripStartDate,
       endDate: currentTripEndDate,
@@ -1201,7 +1321,7 @@ async function saveCurrentTrip() {
     }, { merge: true });
 
     const batch = db.batch();
-    const destRef = tripsRef().doc(currentTripId).collection('destinations');
+    const destRef = db.collection('trips').doc(currentTripId).collection('destinations');
     // Delete existing
     const existing = await destRef.get();
     existing.docs.forEach(d => batch.delete(d.ref));
@@ -1229,9 +1349,11 @@ async function saveCurrentTrip() {
 
 function renderTripSelector() {
   const sel = document.getElementById('trip-selector');
-  sel.innerHTML = trips.map(t =>
-    `<option value="${t.id}" ${t.id === currentTripId ? 'selected' : ''}>${t.name || 'Untitled Trip'}</option>`
-  ).join('');
+  sel.innerHTML = trips.map(t => {
+    const isOwner = t.ownerId === currentUser?.uid || !t.ownerId;
+    const label = isOwner ? (t.name || 'Untitled Trip') : `${t.name || 'Untitled Trip'} (shared)`;
+    return `<option value="${t.id}" ${t.id === currentTripId ? 'selected' : ''}>${label}</option>`;
+  }).join('');
 }
 
 async function switchTrip(id) {
@@ -1286,13 +1408,19 @@ async function createNewTrip() {
 async function createNewTripWithName(name, startDate, endDate) {
   startDate = startDate || '';
   endDate = endDate || '';
-  const ref = await tripsRef().add({
+  const ref = await db.collection('trips').add({
     name, startDate, endDate,
+    ownerId: currentUser.uid,
+    ownerName: currentUser.displayName || '',
+    collaborators: {},
+    collaboratorIds: [],
+    shareToken: generateToken(),
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
-  trips.unshift({ id: ref.id, name, startDate, endDate });
+  trips.unshift({ id: ref.id, name, startDate, endDate, ownerId: currentUser.uid, ownerName: currentUser.displayName || '', collaborators: {}, collaboratorIds: [] });
   currentTripId = ref.id;
+  currentTripRole = 'owner';
   currentTripStartDate = startDate;
   currentTripEndDate = endDate;
   destinations = [];
@@ -1301,6 +1429,88 @@ async function createNewTripWithName(name, startDate, endDate) {
   renderTripSelector();
   renderAll();
   showToast('New trip created');
+}
+
+// ── Collaboration ──
+async function joinTrip(tripId, token) {
+  const ref = db.collection('trips').doc(tripId);
+  const doc = await ref.get();
+  if (!doc.exists) { showToast('Trip not found'); return; }
+  const data = doc.data();
+  if (data.shareToken !== token) { showToast('Invalid share link'); return; }
+  if (data.ownerId === currentUser.uid || data.collaboratorIds?.includes(currentUser.uid)) {
+    // Already have access — just load it
+    if (!trips.find(t => t.id === tripId)) trips.unshift({ id: tripId, ...data });
+    renderTripSelector();
+    await loadTrip(tripId);
+    return;
+  }
+  await ref.update({
+    [`collaborators.${currentUser.uid}`]: { role: 'editor', name: currentUser.displayName || '', photo: currentUser.photoURL || '' },
+    collaboratorIds: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+  });
+  trips.unshift({ id: tripId, ...data });
+  renderTripSelector();
+  await loadTrip(tripId);
+  showToast('You joined ' + data.name);
+}
+
+function openShareModal() {
+  const trip = trips.find(t => t.id === currentTripId);
+  if (!trip) return;
+  const token = trip.shareToken || '';
+  const url = `https://deshtable.github.io/sojourn?join=${currentTripId}&token=${token}`;
+  document.getElementById('share-link-input').value = url;
+  renderCollaboratorsList(trip);
+  document.getElementById('share-modal').classList.add('open');
+}
+
+function closeShareModal() {
+  document.getElementById('share-modal').classList.remove('open');
+}
+
+function copyShareLink() {
+  const val = document.getElementById('share-link-input').value;
+  navigator.clipboard.writeText(val).then(() => showToast('Link copied!'));
+}
+
+function renderCollaboratorsList(trip) {
+  const el = document.getElementById('collab-list');
+  const collabs = trip.collaborators || {};
+  const items = Object.entries(collabs).map(([uid, info]) => `
+    <div class="collab-item">
+      <div class="collab-avatar">${(info.name||'?')[0].toUpperCase()}</div>
+      <div class="collab-info">
+        <div class="collab-name">${esc(info.name || 'Unknown')}</div>
+        <div class="collab-role">${info.role}</div>
+      </div>
+      ${currentTripRole === 'owner' ? `
+        <select class="collab-role-select" onchange="updateCollaboratorRole('${uid}', this.value)">
+          <option value="editor" ${info.role==='editor'?'selected':''}>Editor</option>
+          <option value="viewer" ${info.role==='viewer'?'selected':''}>Viewer</option>
+        </select>
+        <button class="icon-btn danger" onclick="removeCollaborator('${uid}')">✕</button>
+      ` : ''}
+    </div>`).join('');
+  el.innerHTML = items || '<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px 0">No collaborators yet</div>';
+}
+
+async function updateCollaboratorRole(uid, role) {
+  await db.collection('trips').doc(currentTripId).update({ [`collaborators.${uid}.role`]: role });
+  const trip = trips.find(t => t.id === currentTripId);
+  if (trip?.collaborators?.[uid]) trip.collaborators[uid].role = role;
+  showToast('Role updated');
+}
+
+async function removeCollaborator(uid) {
+  await db.collection('trips').doc(currentTripId).update({
+    [`collaborators.${uid}`]: firebase.firestore.FieldValue.delete(),
+    collaboratorIds: firebase.firestore.FieldValue.arrayRemove(uid)
+  });
+  const trip = trips.find(t => t.id === currentTripId);
+  if (trip?.collaborators) delete trip.collaborators[uid];
+  renderCollaboratorsList(trip);
+  showToast('Collaborator removed');
 }
 
 // ── Trip Name ──
@@ -1378,13 +1588,17 @@ function render() {
 }
 
 function renderDestinations() {
+  const viewerBanner = currentTripRole === 'viewer'
+    ? `<div class="viewer-banner">👁 You're viewing this trip — contact the owner for edit access</div>`
+    : '';
   if (destinations.length === 0 && !showAddForm) {
-    return `<div class="empty-state"><strong>No stops yet</strong>Add your first destination below to begin planning your journey.</div>` + renderAddSection();
+    return viewerBanner + `<div class="empty-state"><strong>No stops yet</strong>Add your first destination below to begin planning your journey.</div>` + renderAddSection();
   }
   const totalDays = getTotalTripDays();
   const computed = computeDates();
   const hasLegs = routeLegs.length === destinations.length - 1;
-  return destinations.map((d, i) => {
+  const isViewer = currentTripRole === 'viewer';
+  return viewerBanner + destinations.map((d, i) => {
     const dates = computed[i];
     const dateStr = dates ? `${formatDateShort(dates.from)} – ${formatDateShort(dates.to)}` : '';
     const leg = hasLegs && i < destinations.length - 1 ? routeLegs[i] : null;
@@ -1398,43 +1612,46 @@ function renderDestinations() {
          </div>`
       : '';
     return `
-    <div class="dest-card" draggable="true" data-id="${d.id}">
+    <div class="dest-card" draggable="${!isViewer}" data-id="${d.id}">
       <div class="dest-header">
-        <span class="drag-handle">⠿</span>
+        ${!isViewer ? '<span class="drag-handle">⠿</span>' : ''}
         <div class="stop-num ${d.hasHotel ? 'has-hotel' : ''}">${String.fromCharCode(65 + i)}</div>
         <div class="dest-info">
           <input class="dest-name-input" value="${esc(d.name)}" placeholder="Destination name"
-            onchange="updateDestField('${d.id}','name',this.value)" />
+            onchange="updateDestField('${d.id}','name',this.value)" ${isViewer ? 'disabled' : ''} />
           <div class="dest-meta">
             <div class="dest-nights-ctrl">
               <input type="number" value="${d.nights || 0}" min="0"${totalDays ? ` max="${totalDays}"` : ''}
-                onchange="updateDestField('${d.id}','nights',parseInt(this.value)||0)" />
+                onchange="updateDestField('${d.id}','nights',parseInt(this.value)||0)" ${isViewer ? 'disabled' : ''} />
               <span>nights</span>
             </div>
             ${dateStr ? `<span class="dest-computed-dates">${dateStr}</span>` : ''}
           </div>
         </div>
         <div class="dest-actions">
+          ${!isViewer ? `
           <button class="icon-btn ${d.hasHotel ? 'active' : ''}" title="${d.hasHotel ? 'Remove hotel' : 'Add hotel'}"
             onclick="toggleHotel('${d.id}')">🏨</button>
           <button class="icon-btn danger" onclick="removeDest('${d.id}')">✕</button>
+          ` : ''}
         </div>
       </div>
       ${d.hasHotel ? `
         <div class="hotel-row">
           <span class="hotel-icon">🏨</span>
           <input class="hotel-input" value="${esc(d.hotelName || '')}" placeholder="Hotel name..."
-            onchange="updateDestField('${d.id}','hotelName',this.value)" />
+            onchange="updateDestField('${d.id}','hotelName',this.value)" ${isViewer ? 'disabled' : ''} />
         </div>` : ''}
       <div class="notes-row">
         <textarea class="notes-input" rows="1" placeholder="Notes, reminders, things to do..."
-          onchange="updateDestField('${d.id}','notes',this.value)">${esc(d.notes || '')}</textarea>
+          onchange="updateDestField('${d.id}','notes',this.value)" ${isViewer ? 'disabled' : ''}>${esc(d.notes || '')}</textarea>
       </div>
     </div>${connector}`;
   }).join('') + renderAddSection();
 }
 
 function renderAddSection() {
+  if (currentTripRole === 'viewer') return '';
   if (showAddForm) {
     const totalDays = getTotalTripDays();
     return `
@@ -1540,6 +1757,7 @@ function toggleNewHotelFields() {
 }
 
 function addDestination() {
+  if (currentTripRole === 'viewer') return;
   const name = document.getElementById('new-dest-name')?.value.trim();
   if (!name) { showToast('Please enter a destination name'); return; }
   const hasHotel = document.getElementById('new-has-hotel')?.checked;
@@ -1560,6 +1778,7 @@ function addDestination() {
 }
 
 function removeDest(id) {
+  if (currentTripRole === 'viewer') return;
   destinations = destinations.filter(d => d.id !== id);
   clearRoute();
   renderAll();
@@ -1567,6 +1786,7 @@ function removeDest(id) {
 }
 
 function toggleHotel(id) {
+  if (currentTripRole === 'viewer') return;
   const d = destinations.find(d => d.id === id);
   if (!d) return;
   d.hasHotel = !d.hasHotel;
@@ -1576,6 +1796,7 @@ function toggleHotel(id) {
 }
 
 function updateDestField(id, field, value) {
+  if (currentTripRole === 'viewer') return;
   const d = destinations.find(d => d.id === id);
   if (d) { d[field] = value; scheduleSave(); }
   if (field === 'hasHotel' || field === 'name' || field === 'nights') renderAll();
@@ -1755,6 +1976,9 @@ document.getElementById('new-trip-name-input').addEventListener('keydown', e => 
 });
 document.getElementById('new-trip-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('new-trip-modal')) closeModal();
+});
+document.getElementById('share-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('share-modal')) closeShareModal();
 });
 
 // ── Service Worker ──
