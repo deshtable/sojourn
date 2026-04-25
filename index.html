@@ -802,11 +802,12 @@
 
   /* Share button */
   .share-btn {
-    background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
-    padding: 5px 8px; cursor: pointer; color: var(--muted); display: flex; align-items: center;
-    flex-shrink: 0; transition: var(--transition);
+    background: var(--sage-light); border: 1px solid var(--sage-mid); border-radius: var(--radius-sm);
+    padding: 5px 10px; cursor: pointer; color: var(--sage); display: flex; align-items: center;
+    gap: 5px; flex-shrink: 0; font-family: var(--font-body); font-size: 12px; font-weight: 500;
+    transition: var(--transition);
   }
-  .share-btn:hover { color: var(--sage); border-color: var(--sage); background: var(--sage-light); }
+  .share-btn:hover { background: var(--sage); color: var(--white); border-color: var(--sage); }
 
   /* Collaborator list */
   .collab-item {
@@ -1027,10 +1028,11 @@
         <div class="trip-name-row">
           <input class="trip-name-input" id="trip-name-input" placeholder="Name your trip..." onchange="updateTripName(this.value)" />
           <button class="share-btn" onclick="openShareModal()" title="Share trip">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
             </svg>
+            Share
           </button>
         </div>
         <div id="trip-date-range" class="trip-date-range"></div>
