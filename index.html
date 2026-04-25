@@ -1250,8 +1250,8 @@ async function loadTrips() {
     await migrateOldTrips();
     const uid = currentUser.uid;
     const [ownedSnap, collabSnap] = await Promise.all([
-      db.collection('trips').where('ownerId','==',uid).orderBy('updatedAt','desc').get(),
-      db.collection('trips').where('collaboratorIds','array-contains',uid).orderBy('updatedAt','desc').get()
+      db.collection('trips').where('ownerId','==',uid).get(),
+      db.collection('trips').where('collaboratorIds','array-contains',uid).get()
     ]);
     const seen = new Set();
     const merged = [];
