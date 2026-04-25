@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -438,24 +439,44 @@
   }
   .hotel-input:focus { outline: none; }
   .hotel-input::placeholder { color: #93C5FD; font-weight: 400; }
-  .modal-date-row {
-    display: flex; align-items: flex-end; gap: 10px;
-    margin-bottom: 0;
+  /* Flatpickr range calendar — themed to match Sojourn */
+  .modal-cal-wrap { display: flex; justify-content: center; margin-bottom: 4px; }
+  .flatpickr-calendar {
+    font-family: var(--font-body) !important;
+    border: 1px solid var(--border-dark) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: var(--shadow) !important;
   }
-  .modal-date-field { flex: 1; }
-  .modal-date-field label {
-    display: block;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    color: var(--muted);
-    margin-bottom: 6px;
+  .flatpickr-calendar.inline { box-shadow: none !important; border: 1px solid var(--border) !important; }
+  .flatpickr-months { background: transparent; border-radius: var(--radius) var(--radius) 0 0; }
+  .flatpickr-month { background: transparent !important; color: var(--ink) !important; }
+  .flatpickr-current-month { font-family: var(--font-display) !important; font-size: 15px !important; font-weight: 500; }
+  .flatpickr-current-month select, .flatpickr-current-month input { color: var(--ink) !important; font-family: var(--font-body) !important; }
+  .flatpickr-weekday { color: var(--muted) !important; font-weight: 500; font-size: 11px; }
+  .flatpickr-day { font-family: var(--font-body) !important; color: var(--ink-soft); border-radius: var(--radius-sm) !important; }
+  .flatpickr-day:hover { background: var(--sage-light) !important; border-color: var(--sage-light) !important; color: var(--ink) !important; }
+  .flatpickr-day.today { border-color: var(--sage-mid) !important; }
+  .flatpickr-day.today:hover { background: var(--sage-light) !important; }
+  .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange {
+    background: var(--sage) !important;
+    border-color: var(--sage) !important;
+    color: #fff !important;
   }
-  .modal-date-arrow {
-    font-size: 16px;
-    color: var(--muted);
-    padding-bottom: 10px;
-    flex-shrink: 0;
+  .flatpickr-day.inRange {
+    background: var(--sage-light) !important;
+    border-color: var(--sage-light) !important;
+    color: var(--ink) !important;
+    box-shadow: -5px 0 0 var(--sage-light), 5px 0 0 var(--sage-light) !important;
+    border-radius: 0 !important;
+  }
+  .flatpickr-day.startRange { border-radius: var(--radius-sm) 0 0 var(--radius-sm) !important; }
+  .flatpickr-day.endRange { border-radius: 0 var(--radius-sm) var(--radius-sm) 0 !important; }
+  .flatpickr-day.disabled, .flatpickr-day.disabled:hover { color: var(--border-dark) !important; }
+  .flatpickr-prev-month svg, .flatpickr-next-month svg { fill: var(--ink-soft) !important; }
+  .flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg { fill: var(--sage) !important; }
+  .trip-range-display {
+    font-size: 12px; color: var(--muted); text-align: center;
+    min-height: 18px; margin-bottom: 4px;
   }
 
   .notes-row { padding: 0 14px 12px; }
@@ -872,19 +893,12 @@
 <div class="modal-backdrop" id="new-trip-modal">
   <div class="modal">
     <h2>New trip</h2>
-    <p>Name your adventure and set your travel dates</p>
+    <p>Name your adventure and pick your travel dates</p>
     <input class="form-input" id="new-trip-name-input" placeholder="e.g. Pacific Coast Highway, Europe Summer 2025..." />
-    <div class="modal-date-row">
-      <div class="modal-date-field">
-        <label>Start date</label>
-        <input type="date" class="form-input" id="new-trip-start-date" style="margin-bottom:0" />
-      </div>
-      <span class="modal-date-arrow">→</span>
-      <div class="modal-date-field">
-        <label>End date</label>
-        <input type="date" class="form-input" id="new-trip-end-date" style="margin-bottom:0" />
-      </div>
+    <div class="modal-cal-wrap">
+      <input id="trip-date-picker" type="text" style="display:none" />
     </div>
+    <div class="trip-range-display" id="trip-range-display"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Cancel</button>
       <button class="btn-primary" onclick="createNewTrip()">Create Trip</button>
@@ -895,6 +909,7 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <!-- Firebase (compat SDK for simplicity) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -933,6 +948,7 @@ let saveTimer = null;
 let placesAutocomplete = null;
 let mapInstance = null;
 let directionsRenderer = null;
+let tripDatePicker = null;
 
 // ── Auth ──
 document.getElementById('sign-in-btn').addEventListener('click', () => {
@@ -1063,19 +1079,44 @@ async function switchTrip(id) {
 
 function openNewTripModal() {
   document.getElementById('new-trip-modal').classList.add('open');
-  setTimeout(() => document.getElementById('new-trip-name-input').focus(), 100);
+  setTimeout(() => {
+    document.getElementById('new-trip-name-input').focus();
+    if (!tripDatePicker) {
+      tripDatePicker = flatpickr('#trip-date-picker', {
+        mode: 'range',
+        inline: true,
+        dateFormat: 'Y-m-d',
+        onChange(selectedDates) {
+          const el = document.getElementById('trip-range-display');
+          if (selectedDates.length === 2) {
+            const days = Math.round((selectedDates[1] - selectedDates[0]) / 86400000);
+            el.textContent = `${formatDateShort(selectedDates[0])} – ${formatDateShort(selectedDates[1])} · ${days} day${days !== 1 ? 's' : ''}`;
+          } else if (selectedDates.length === 1) {
+            el.textContent = `${formatDateShort(selectedDates[0])} — pick an end date`;
+          } else {
+            el.textContent = '';
+          }
+        }
+      });
+    } else {
+      tripDatePicker.clear();
+      document.getElementById('trip-range-display').textContent = '';
+    }
+  }, 50);
 }
+
 function closeModal() {
   document.getElementById('new-trip-modal').classList.remove('open');
   document.getElementById('new-trip-name-input').value = '';
-  document.getElementById('new-trip-start-date').value = '';
-  document.getElementById('new-trip-end-date').value = '';
+  if (tripDatePicker) { tripDatePicker.clear(); }
+  document.getElementById('trip-range-display').textContent = '';
 }
 
 async function createNewTrip() {
   const name = document.getElementById('new-trip-name-input').value.trim() || 'New Trip';
-  const startDate = document.getElementById('new-trip-start-date').value;
-  const endDate = document.getElementById('new-trip-end-date').value;
+  const dates = tripDatePicker?.selectedDates || [];
+  const startDate = dates[0] ? toISODate(dates[0]) : '';
+  const endDate = dates[1] ? toISODate(dates[1]) : '';
   closeModal();
   await createNewTripWithName(name, startDate, endDate);
 }
@@ -1131,6 +1172,9 @@ function computeDates() {
 function formatDateShort(date) {
   if (!date) return '';
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+function toISODate(date) {
+  return date.toISOString().split('T')[0];
 }
 
 function updateTripDateRange() {
