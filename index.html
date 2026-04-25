@@ -363,23 +363,40 @@
   }
   .dest-name-input:focus { outline: none; border-bottom: 1px solid var(--border-dark); }
 
-  .dest-dates {
-    display: flex; align-items: center; gap: 8px;
-    margin-top: 6px;
+  .dest-meta {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 5px;
   }
-  .date-input {
+  .dest-nights-ctrl {
+    display: flex; align-items: center; gap: 4px;
     font-size: 11px;
     color: var(--muted);
+  }
+  .dest-nights-ctrl input[type=number] {
+    width: 34px;
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-weight: 500;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 3px 7px;
+    border-radius: 4px;
+    padding: 2px 5px;
+    text-align: center;
     font-family: var(--font-body);
     background: var(--cream);
-    cursor: pointer;
-    transition: var(--transition);
   }
-  .date-input:focus { outline: none; border-color: var(--sage); color: var(--ink); }
-  .date-sep { font-size: 11px; color: var(--muted); }
+  .dest-nights-ctrl input[type=number]:focus { outline: none; border-color: var(--sage); }
+  .dest-computed-dates {
+    font-size: 11px;
+    color: var(--muted);
+    border-left: 1px solid var(--border);
+    padding-left: 10px;
+  }
+  .trip-date-range {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    min-height: 16px;
+  }
 
   .dest-actions {
     display: flex; gap: 2px;
@@ -421,23 +438,25 @@
   }
   .hotel-input:focus { outline: none; }
   .hotel-input::placeholder { color: #93C5FD; font-weight: 400; }
-  .hotel-nights {
+  .modal-date-row {
+    display: flex; align-items: flex-end; gap: 10px;
+    margin-bottom: 0;
+  }
+  .modal-date-field { flex: 1; }
+  .modal-date-field label {
+    display: block;
     font-size: 11px;
-    color: #60A5FA;
-    display: flex; align-items: center; gap: 4px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .modal-date-arrow {
+    font-size: 16px;
+    color: var(--muted);
+    padding-bottom: 10px;
     flex-shrink: 0;
   }
-  .nights-input {
-    width: 32px;
-    font-size: 11px;
-    color: var(--sky);
-    font-weight: 500;
-    border: none;
-    background: transparent;
-    text-align: center;
-    font-family: var(--font-body);
-  }
-  .nights-input:focus { outline: none; border-bottom: 1px solid #93C5FD; }
 
   .notes-row { padding: 0 14px 12px; }
   .notes-input {
@@ -618,7 +637,7 @@
   .btn-route:hover { background: var(--sage); }
 
   .map-container { flex: 1; position: relative; min-height: 0; }
-  #map-iframe { width: 100%; height: 100%; border: none; display: none; }
+  #map-div { width: 100%; height: 100%; display: none; }
   .map-placeholder {
     position: absolute; inset: 0;
     display: flex; flex-direction: column;
@@ -733,6 +752,31 @@
   .no-trips-msg { text-align: center; padding: 40px 20px; }
   .no-trips-msg h2 { font-family: var(--font-display); font-size: 24px; margin-bottom: 8px; font-weight: 500; }
   .no-trips-msg p { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+
+  /* Google Places Autocomplete dropdown */
+  .pac-container {
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+    font-family: var(--font-body);
+    font-size: 13px;
+    margin-top: 2px;
+    background: var(--white);
+    z-index: 9999 !important;
+  }
+  .pac-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    color: var(--ink);
+    border-top: 1px solid var(--border);
+    line-height: 1.4;
+  }
+  .pac-item:first-child { border-top: none; }
+  .pac-item:hover, .pac-item-selected { background: var(--sage-light); }
+  .pac-item-query { font-size: 13px; color: var(--ink); }
+  .pac-matched { font-weight: 500; color: var(--sage); }
+  .pac-icon { display: none; }
+  .pac-logo::after { display: none; }
 </style>
 </head>
 <body>
@@ -787,6 +831,7 @@
         <div class="trip-name-row">
           <input class="trip-name-input" id="trip-name-input" placeholder="Name your trip..." onchange="updateTripName(this.value)" />
         </div>
+        <div id="trip-date-range" class="trip-date-range"></div>
         <div class="tabs">
           <button class="tab active" onclick="switchTab('destinations')">Destinations</button>
           <button class="tab" onclick="switchTab('hotels')">Hotels</button>
@@ -817,7 +862,7 @@
           <div class="map-ph-title">Your route awaits</div>
           <div class="map-ph-sub">Add at least two destinations, then click Show Route to see your journey on the map</div>
         </div>
-        <iframe id="map-iframe"></iframe>
+        <div id="map-div"></div>
       </div>
     </div>
   </div>
@@ -827,8 +872,19 @@
 <div class="modal-backdrop" id="new-trip-modal">
   <div class="modal">
     <h2>New trip</h2>
-    <p>Give your adventure a name to get started</p>
+    <p>Name your adventure and set your travel dates</p>
     <input class="form-input" id="new-trip-name-input" placeholder="e.g. Pacific Coast Highway, Europe Summer 2025..." />
+    <div class="modal-date-row">
+      <div class="modal-date-field">
+        <label>Start date</label>
+        <input type="date" class="form-input" id="new-trip-start-date" style="margin-bottom:0" />
+      </div>
+      <span class="modal-date-arrow">→</span>
+      <div class="modal-date-field">
+        <label>End date</label>
+        <input type="date" class="form-input" id="new-trip-end-date" style="margin-bottom:0" />
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Cancel</button>
       <button class="btn-primary" onclick="createNewTrip()">Create Trip</button>
@@ -843,6 +899,8 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- Google Maps Places API for destination autocomplete -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCxuOLOzSFbrsqk9LTi92A5aPP1zYQEQWo&libraries=places" async></script>
 
 <script>
 // ── Firebase Init ──
@@ -865,11 +923,16 @@ const MAPS_KEY = "AIzaSyCxuOLOzSFbrsqk9LTi92A5aPP1zYQEQWo";
 let currentUser = null;
 let trips = [];
 let currentTripId = null;
+let currentTripStartDate = '';
+let currentTripEndDate = '';
 let destinations = [];
 let activeTab = 'destinations';
 let showAddForm = false;
 let dragSrc = null;
 let saveTimer = null;
+let placesAutocomplete = null;
+let mapInstance = null;
+let directionsRenderer = null;
 
 // ── Auth ──
 document.getElementById('sign-in-btn').addEventListener('click', () => {
@@ -931,6 +994,9 @@ async function loadTrip(tripId) {
   if (!tripDoc) return;
   document.getElementById('trip-name-input').value = tripDoc.name || 'Untitled Trip';
   document.getElementById('print-trip-name').textContent = tripDoc.name || 'Untitled Trip';
+  currentTripStartDate = tripDoc.startDate || '';
+  currentTripEndDate = tripDoc.endDate || '';
+  updateTripDateRange();
 
   const snap = await tripsRef().doc(tripId).collection('destinations').orderBy('order').get();
   destinations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -951,6 +1017,8 @@ async function saveCurrentTrip() {
     const tripName = document.getElementById('trip-name-input').value || 'Untitled Trip';
     await tripsRef().doc(currentTripId).set({
       name: tripName,
+      startDate: currentTripStartDate,
+      endDate: currentTripEndDate,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
 
@@ -1000,23 +1068,33 @@ function openNewTripModal() {
 function closeModal() {
   document.getElementById('new-trip-modal').classList.remove('open');
   document.getElementById('new-trip-name-input').value = '';
+  document.getElementById('new-trip-start-date').value = '';
+  document.getElementById('new-trip-end-date').value = '';
 }
 
 async function createNewTrip() {
   const name = document.getElementById('new-trip-name-input').value.trim() || 'New Trip';
+  const startDate = document.getElementById('new-trip-start-date').value;
+  const endDate = document.getElementById('new-trip-end-date').value;
   closeModal();
-  await createNewTripWithName(name);
+  await createNewTripWithName(name, startDate, endDate);
 }
 
-async function createNewTripWithName(name) {
+async function createNewTripWithName(name, startDate, endDate) {
+  startDate = startDate || '';
+  endDate = endDate || '';
   const ref = await tripsRef().add({
-    name, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    name, startDate, endDate,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
-  trips.unshift({ id: ref.id, name });
+  trips.unshift({ id: ref.id, name, startDate, endDate });
   currentTripId = ref.id;
+  currentTripStartDate = startDate;
+  currentTripEndDate = endDate;
   destinations = [];
   document.getElementById('trip-name-input').value = name;
+  updateTripDateRange();
   renderTripSelector();
   renderAll();
   showToast('New trip created');
@@ -1026,6 +1104,47 @@ async function createNewTripWithName(name) {
 function updateTripName(val) {
   document.getElementById('print-trip-name').textContent = val || 'My Trip';
   scheduleSave();
+}
+
+// ── Trip dates ──
+function getTotalTripDays() {
+  if (!currentTripStartDate || !currentTripEndDate) return 0;
+  const start = new Date(currentTripStartDate + 'T12:00:00');
+  const end = new Date(currentTripEndDate + 'T12:00:00');
+  return Math.max(0, Math.round((end - start) / 86400000));
+}
+
+function computeDates() {
+  if (!currentTripStartDate) return destinations.map(() => null);
+  const results = [];
+  let cursor = new Date(currentTripStartDate + 'T12:00:00');
+  for (const d of destinations) {
+    const from = new Date(cursor);
+    const nights = parseInt(d.nights) || 0;
+    cursor = new Date(cursor);
+    cursor.setDate(cursor.getDate() + nights);
+    results.push({ from, to: new Date(cursor) });
+  }
+  return results;
+}
+
+function formatDateShort(date) {
+  if (!date) return '';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function updateTripDateRange() {
+  const el = document.getElementById('trip-date-range');
+  const printDate = document.getElementById('print-trip-date');
+  if (currentTripStartDate && currentTripEndDate) {
+    const days = getTotalTripDays();
+    const text = `${formatDate(currentTripStartDate)} – ${formatDate(currentTripEndDate)} · ${days} day${days !== 1 ? 's' : ''}`;
+    if (el) el.textContent = text;
+    if (printDate) printDate.textContent = text;
+  } else {
+    if (el) el.textContent = '';
+    if (printDate) printDate.textContent = 'Sojourn Itinerary';
+  }
 }
 
 // ── Tab ──
@@ -1056,7 +1175,12 @@ function renderDestinations() {
   if (destinations.length === 0 && !showAddForm) {
     return `<div class="empty-state"><strong>No stops yet</strong>Add your first destination below to begin planning your journey.</div>` + renderAddSection();
   }
-  return destinations.map((d, i) => `
+  const totalDays = getTotalTripDays();
+  const computed = computeDates();
+  return destinations.map((d, i) => {
+    const dates = computed[i];
+    const dateStr = dates ? `${formatDateShort(dates.from)} – ${formatDateShort(dates.to)}` : '';
+    return `
     <div class="dest-card" draggable="true" data-id="${d.id}">
       <div class="dest-header">
         <span class="drag-handle">⠿</span>
@@ -1064,12 +1188,13 @@ function renderDestinations() {
         <div class="dest-info">
           <input class="dest-name-input" value="${esc(d.name)}" placeholder="Destination name"
             onchange="updateDestField('${d.id}','name',this.value)" />
-          <div class="dest-dates">
-            <input type="date" class="date-input" value="${d.arrival || ''}"
-              onchange="updateDestField('${d.id}','arrival',this.value)" title="Arrival date" />
-            <span class="date-sep">→</span>
-            <input type="date" class="date-input" value="${d.departure || ''}"
-              onchange="updateDestField('${d.id}','departure',this.value)" title="Departure date" />
+          <div class="dest-meta">
+            <div class="dest-nights-ctrl">
+              <input type="number" value="${d.nights || 0}" min="0"${totalDays ? ` max="${totalDays}"` : ''}
+                onchange="updateDestField('${d.id}','nights',parseInt(this.value)||0)" />
+              <span>nights</span>
+            </div>
+            ${dateStr ? `<span class="dest-computed-dates">${dateStr}</span>` : ''}
           </div>
         </div>
         <div class="dest-actions">
@@ -1083,39 +1208,32 @@ function renderDestinations() {
           <span class="hotel-icon">🏨</span>
           <input class="hotel-input" value="${esc(d.hotelName || '')}" placeholder="Hotel name..."
             onchange="updateDestField('${d.id}','hotelName',this.value)" />
-          <div class="hotel-nights">
-            <input type="number" class="nights-input" value="${d.nights || 1}" min="1"
-              onchange="updateDestField('${d.id}','nights',parseInt(this.value)||1)" />
-            <span>nights</span>
-          </div>
         </div>` : ''}
       <div class="notes-row">
         <textarea class="notes-input" rows="1" placeholder="Notes, reminders, things to do..."
           onchange="updateDestField('${d.id}','notes',this.value)">${esc(d.notes || '')}</textarea>
       </div>
-    </div>
-  `).join('') + renderAddSection();
+    </div>`;
+  }).join('') + renderAddSection();
 }
 
 function renderAddSection() {
   if (showAddForm) {
+    const totalDays = getTotalTripDays();
     return `
       <div class="add-section">
         <div class="add-form">
           <input class="form-input" id="new-dest-name" placeholder="City, region or landmark (e.g. Lisbon, Portugal)" />
-          <div class="form-row">
-            <input type="date" class="form-input" id="new-dest-arrival" placeholder="Arrival" style="margin-bottom:0" />
-            <input type="date" class="form-input" id="new-dest-departure" placeholder="Departure" style="margin-bottom:0" />
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <input type="number" class="form-input" id="new-dest-nights" value="1" min="0"${totalDays ? ` max="${totalDays}"` : ''} style="max-width:72px;margin-bottom:0;text-align:center" />
+            <span style="font-size:13px;color:var(--muted)">nights${totalDays ? ` (trip is ${totalDays} days)` : ''}</span>
           </div>
           <label class="check-label" style="margin-top:4px">
             <input type="checkbox" id="new-has-hotel" onchange="toggleNewHotelFields()" />
             Add hotel at this stop
           </label>
           <div id="new-hotel-fields" style="display:none;margin-top:10px">
-            <div class="form-row">
-              <input class="form-input" id="new-hotel-name" placeholder="Hotel name" style="margin-bottom:0" />
-              <input type="number" class="form-input" id="new-hotel-nights" value="1" min="1" placeholder="Nights" style="max-width:80px;margin-bottom:0" />
-            </div>
+            <input class="form-input" id="new-hotel-name" placeholder="Hotel name" style="margin-bottom:0" />
           </div>
           <div class="form-actions">
             <button class="btn-cancel" onclick="cancelAdd()">Cancel</button>
@@ -1132,7 +1250,12 @@ function renderHotels() {
   if (hotelDests.length === 0) {
     return `<div class="empty-state"><strong>No hotels yet</strong>Toggle the 🏨 button on any destination to plan a hotel stay there.</div>`;
   }
-  return hotelDests.map(d => `
+  const computed = computeDates();
+  return hotelDests.map(d => {
+    const idx = destinations.indexOf(d);
+    const dates = computed[idx];
+    const nights = parseInt(d.nights) || 0;
+    return `
     <div class="hotel-card">
       <div class="hotel-card-header">
         <div>
@@ -1142,17 +1265,16 @@ function renderHotels() {
         <button class="icon-btn danger" onclick="toggleHotel('${d.id}')">✕</button>
       </div>
       <div class="hotel-card-meta">
-        ${d.arrival ? `<span class="meta-pill">✈️ ${formatDate(d.arrival)}</span>` : ''}
-        ${d.departure ? `<span class="meta-pill">🛫 ${formatDate(d.departure)}</span>` : ''}
-        <span class="meta-pill">🌙 ${d.nights || 1} night${(d.nights || 1) > 1 ? 's' : ''}</span>
+        ${dates ? `<span class="meta-pill">📅 ${formatDateShort(dates.from)} – ${formatDateShort(dates.to)}</span>` : ''}
+        <span class="meta-pill">🌙 ${nights} night${nights !== 1 ? 's' : ''}</span>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function updateSummary() {
   const hotels = destinations.filter(d => d.hasHotel);
-  const nights = hotels.reduce((s, d) => s + (parseInt(d.nights) || 1), 0);
+  const nights = destinations.reduce((s, d) => s + (parseInt(d.nights) || 0), 0);
   document.getElementById('s-stops').textContent = destinations.length;
   document.getElementById('s-hotels').textContent = hotels.length;
   document.getElementById('s-nights').textContent = nights;
@@ -1166,8 +1288,34 @@ function updateMapBadge() {
 }
 
 // ── Destination actions ──
-function openAddForm() { showAddForm = true; render(); setTimeout(() => document.getElementById('new-dest-name')?.focus(), 50); }
+function openAddForm() {
+  showAddForm = true;
+  placesAutocomplete = null;
+  render();
+  setTimeout(() => {
+    const input = document.getElementById('new-dest-name');
+    if (input) { input.focus(); initDestinationAutocomplete(input); }
+  }, 50);
+}
 function cancelAdd() { showAddForm = false; render(); }
+
+function initDestinationAutocomplete(input, attempt) {
+  if (!input) return;
+  attempt = attempt || 0;
+  if (!window.google?.maps?.places) {
+    if (attempt < 25) setTimeout(() => initDestinationAutocomplete(input, attempt + 1), 200);
+    return;
+  }
+  placesAutocomplete = new google.maps.places.Autocomplete(input, {
+    types: ['geocode', 'establishment'],
+    fields: ['name', 'formatted_address', 'types']
+  });
+  placesAutocomplete.addListener('place_changed', () => {
+    const place = placesAutocomplete.getPlace();
+    if (place?.formatted_address) input.value = place.formatted_address;
+    else if (place?.name) input.value = place.name;
+  });
+}
 function toggleNewHotelFields() {
   const checked = document.getElementById('new-has-hotel')?.checked;
   const fields = document.getElementById('new-hotel-fields');
@@ -1181,11 +1329,9 @@ function addDestination() {
   const dest = {
     id: 'dest_' + Date.now(),
     name,
-    arrival: document.getElementById('new-dest-arrival')?.value || '',
-    departure: document.getElementById('new-dest-departure')?.value || '',
+    nights: parseInt(document.getElementById('new-dest-nights')?.value) || 0,
     hasHotel,
     hotelName: hasHotel ? (document.getElementById('new-hotel-name')?.value.trim() || '') : '',
-    nights: hasHotel ? (parseInt(document.getElementById('new-hotel-nights')?.value) || 1) : 0,
     notes: '',
     order: destinations.length
   };
@@ -1205,7 +1351,7 @@ function toggleHotel(id) {
   const d = destinations.find(d => d.id === id);
   if (!d) return;
   d.hasHotel = !d.hasHotel;
-  if (d.hasHotel && !d.hotelName) { d.hotelName = ''; d.nights = 1; }
+  if (d.hasHotel && d.hotelName === undefined) d.hotelName = '';
   renderAll();
   scheduleSave();
 }
@@ -1213,7 +1359,7 @@ function toggleHotel(id) {
 function updateDestField(id, field, value) {
   const d = destinations.find(d => d.id === id);
   if (d) { d[field] = value; scheduleSave(); }
-  if (field === 'hasHotel' || field === 'name') renderAll();
+  if (field === 'hasHotel' || field === 'name' || field === 'nights') renderAll();
   else updateSummary();
 }
 
@@ -1250,20 +1396,44 @@ function attachDragListeners() {
 // ── Map ──
 function showRoute() {
   if (destinations.length < 2) { showToast('Add at least 2 destinations to see a route'); return; }
-  const places = destinations.map(d => encodeURIComponent(d.name));
-  const origin = places[0];
-  const dest = places[places.length - 1];
-  const waypoints = places.slice(1, -1).join('|');
-  let url = `https://www.google.com/maps/embed/v1/directions?key=${MAPS_KEY}&origin=${origin}&destination=${dest}&mode=driving`;
-  if (waypoints) url += `&waypoints=${waypoints}`;
-  const iframe = document.getElementById('map-iframe');
+  if (!window.google?.maps) { showToast('Maps is still loading — try again in a moment'); return; }
+
+  const mapDiv = document.getElementById('map-div');
   const ph = document.getElementById('map-placeholder');
-  iframe.src = url;
-  iframe.style.display = 'block';
-  ph.style.display = 'none';
-  const from = destinations[0].name.split(',')[0];
-  const to = destinations[destinations.length - 1].name.split(',')[0];
-  document.getElementById('map-title').textContent = `${from} → ${to}`;
+
+  if (!mapInstance) {
+    mapInstance = new google.maps.Map(mapDiv, {
+      zoom: 7,
+      center: { lat: 36.7, lng: -119.7 },
+      mapTypeControl: true,
+      streetViewControl: false,
+      fullscreenControl: true,
+    });
+  }
+
+  if (directionsRenderer) directionsRenderer.setMap(null);
+  directionsRenderer = new google.maps.DirectionsRenderer({ draggable: true });
+  directionsRenderer.setMap(mapInstance);
+
+  const service = new google.maps.DirectionsService();
+  service.route({
+    origin: destinations[0].name,
+    destination: destinations[destinations.length - 1].name,
+    waypoints: destinations.slice(1, -1).map(d => ({ location: d.name, stopover: true })),
+    optimizeWaypoints: false,
+    travelMode: google.maps.TravelMode.DRIVING
+  }, (result, status) => {
+    if (status === google.maps.DirectionsStatus.OK) {
+      directionsRenderer.setDirections(result);
+      mapDiv.style.display = 'block';
+      ph.style.display = 'none';
+      const from = destinations[0].name.split(',')[0];
+      const to = destinations[destinations.length - 1].name.split(',')[0];
+      document.getElementById('map-title').textContent = `${from} → ${to}`;
+    } else {
+      showToast('Could not calculate route: ' + status);
+    }
+  });
 }
 
 // ── PDF Export ──
