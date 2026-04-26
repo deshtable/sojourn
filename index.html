@@ -1222,6 +1222,7 @@ let dragSrc = null;
 let hasUnpublishedChanges = false;
 let tripListener = null;
 let listenerBaseline = null;
+let saveTimer = null;
 let placesAutocomplete = null;
 let mapInstance = null;
 let directionsRenderer = null;
@@ -1380,30 +1381,33 @@ function scheduleSave() {
   if (currentTripRole === 'viewer') return;
   hasUnpublishedChanges = true;
   document.getElementById('publish-bar').classList.add('visible');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveCurrentTrip, 1500);
 }
 
 async function saveCurrentTrip() {
   if (!currentUser || !currentTripId) return;
   if (currentTripRole === 'viewer') return;
-  const tripName = document.getElementById('trip-name-input').value || 'Untitled Trip';
-  await db.collection('trips').doc(currentTripId).set({
-    name: tripName,
-    startDate: currentTripStartDate,
-    endDate: currentTripEndDate,
-    lastEditedBy: currentUser.uid,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }, { merge: true });
-
-  const batch = db.batch();
-  const destRef = db.collection('trips').doc(currentTripId).collection('destinations');
-  const existing = await destRef.get();
-  existing.docs.forEach(d => batch.delete(d.ref));
-  destinations.forEach((dest, i) => batch.set(destRef.doc(dest.id), { ...dest, order: i }));
-  await batch.commit();
-
-  const idx = trips.findIndex(t => t.id === currentTripId);
-  if (idx >= 0) trips[idx].name = tripName;
-  renderTripSelector();
+  try {
+    const tripName = document.getElementById('trip-name-input').value || 'Untitled Trip';
+    await db.collection('trips').doc(currentTripId).set({
+      name: tripName,
+      startDate: currentTripStartDate,
+      endDate: currentTripEndDate,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    const batch = db.batch();
+    const destRef = db.collection('trips').doc(currentTripId).collection('destinations');
+    const existing = await destRef.get();
+    existing.docs.forEach(d => batch.delete(d.ref));
+    destinations.forEach((dest, i) => batch.set(destRef.doc(dest.id), { ...dest, order: i }));
+    await batch.commit();
+    const idx = trips.findIndex(t => t.id === currentTripId);
+    if (idx >= 0) trips[idx].name = tripName;
+    renderTripSelector();
+  } catch (e) {
+    console.error('Auto-save error:', e);
+  }
 }
 
 async function publishChanges() {
@@ -1412,7 +1416,13 @@ async function publishChanges() {
   btn.textContent = 'Publishing…';
   btn.disabled = true;
   try {
+    clearTimeout(saveTimer);
     await saveCurrentTrip();
+    // Set publishedAt separately — this is what triggers collaborator notifications
+    await db.collection('trips').doc(currentTripId).update({
+      lastEditedBy: currentUser.uid,
+      publishedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
     hasUnpublishedChanges = false;
     document.getElementById('publish-bar').classList.remove('visible');
     showToast('Changes published');
@@ -1431,15 +1441,14 @@ function setupTripListener(tripId) {
   tripListener = db.collection('trips').doc(tripId).onSnapshot(snap => {
     if (!snap.exists) return;
     const data = snap.data();
-    const newMs = data.updatedAt?.toMillis?.() || 0;
+    // Watch publishedAt only — auto-saves update updatedAt but don't notify
+    const newMs = data.publishedAt?.toMillis?.() || 0;
     if (listenerBaseline === null) { listenerBaseline = newMs; return; }
-    if (newMs > listenerBaseline) {
+    if (newMs > listenerBaseline && data.lastEditedBy && data.lastEditedBy !== currentUser.uid) {
       listenerBaseline = newMs;
-      if (data.lastEditedBy && data.lastEditedBy !== currentUser.uid) {
-        const collab = data.collaborators?.[data.lastEditedBy];
-        const name = collab?.name || (data.lastEditedBy === data.ownerId ? (data.ownerName || 'Owner') : 'Someone');
-        showUpdateBanner(name);
-      }
+      const collab = data.collaborators?.[data.lastEditedBy];
+      const name = collab?.name || (data.lastEditedBy === data.ownerId ? (data.ownerName || 'Owner') : 'Someone');
+      showUpdateBanner(name);
     }
   });
 }

@@ -1,4 +1,4 @@
-const CACHE = 'sojourn-v1';
+const CACHE = 'sojourn-v2';
 const PRECACHE = [
   '/sojourn/',
   '/sojourn/index.html',
