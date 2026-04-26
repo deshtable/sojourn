@@ -1464,14 +1464,25 @@ async function joinTrip(tripId, token) {
   showToast('You joined ' + data.name);
 }
 
-function openShareModal() {
+async function openShareModal() {
   const trip = trips.find(t => t.id === currentTripId);
   if (!trip) return;
   const token = trip.shareToken || '';
   const url = `https://deshtable.github.io/sojourn?join=${currentTripId}&token=${token}`;
   document.getElementById('share-link-input').value = url;
-  renderCollaboratorsList(trip);
   document.getElementById('share-modal').classList.add('open');
+  // Re-fetch from Firestore so collaborator list is always current
+  try {
+    const snap = await db.collection('trips').doc(currentTripId).get();
+    if (snap.exists) {
+      const fresh = { id: snap.id, ...snap.data() };
+      const idx = trips.findIndex(t => t.id === currentTripId);
+      if (idx !== -1) trips[idx] = fresh;
+      renderCollaboratorsList(fresh);
+    }
+  } catch (e) {
+    renderCollaboratorsList(trip);
+  }
 }
 
 function closeShareModal() {
