@@ -1202,7 +1202,12 @@ auth.onAuthStateChanged(async user => {
     const joinToken = params.get('token');
     if (joinId && joinToken) {
       window.history.replaceState({}, '', window.location.pathname);
-      await joinTrip(joinId, joinToken);
+      try {
+        await joinTrip(joinId, joinToken);
+      } catch (e) {
+        console.error('Join trip failed:', e);
+        showToast('Could not join trip — check your permissions or try the link again');
+      }
     }
   } else {
     currentUser = null;
@@ -1221,28 +1226,29 @@ function generateToken() {
 }
 
 async function migrateOldTrips() {
+  const migKey = `sojourn_migrated_${currentUser.uid}`;
+  if (localStorage.getItem(migKey)) return;
   const oldRef = db.collection('users').doc(currentUser.uid).collection('trips');
   const snap = await oldRef.get();
-  if (snap.empty) return;
+  if (snap.empty) { localStorage.setItem(migKey, '1'); return; }
   for (const doc of snap.docs) {
-    const exists = await db.collection('trips').doc(doc.id).get();
-    if (!exists.exists) {
-      await db.collection('trips').doc(doc.id).set({
-        ...doc.data(),
-        ownerId: currentUser.uid,
-        ownerName: currentUser.displayName || '',
-        collaborators: {}, collaboratorIds: [],
-        shareToken: generateToken()
-      });
-      const destSnap = await oldRef.doc(doc.id).collection('destinations').get();
-      if (!destSnap.empty) {
-        const batch = db.batch();
-        destSnap.docs.forEach(d => batch.set(db.collection('trips').doc(doc.id).collection('destinations').doc(d.id), d.data()));
-        await batch.commit();
-      }
+    await db.collection('trips').doc(doc.id).set({
+      ...doc.data(),
+      ownerId: currentUser.uid,
+      ownerName: currentUser.displayName || '',
+      collaborators: doc.data().collaborators || {},
+      collaboratorIds: doc.data().collaboratorIds || [],
+      shareToken: doc.data().shareToken || generateToken()
+    }, { merge: true });
+    const destSnap = await oldRef.doc(doc.id).collection('destinations').get();
+    if (!destSnap.empty) {
+      const batch = db.batch();
+      destSnap.docs.forEach(d => batch.set(db.collection('trips').doc(doc.id).collection('destinations').doc(d.id), d.data()));
+      await batch.commit();
     }
     await oldRef.doc(doc.id).delete();
   }
+  localStorage.setItem(migKey, '1');
 }
 
 async function loadTrips() {
