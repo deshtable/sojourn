@@ -1205,6 +1205,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
 const MAPS_KEY = "AIzaSyCxuOLOzSFbrsqk9LTi92A5aPP1zYQEQWo";
 
@@ -1382,7 +1383,7 @@ function scheduleSave() {
   hasUnpublishedChanges = true;
   document.getElementById('publish-bar').classList.add('visible');
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveCurrentTrip, 1500);
+  saveTimer = setTimeout(saveCurrentTrip, 800);
 }
 
 async function saveCurrentTrip() {
