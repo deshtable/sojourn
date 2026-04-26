@@ -839,18 +839,58 @@
   /* Shared trip indicator in selector */
   .trip-selector option[data-shared]::after { content: ' (shared)'; }
 
-  /* ── Saving indicator ── */
-  .saving-dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--muted);
-    display: inline-block;
-    margin-left: 6px;
-    transition: background .3s;
+  /* ── Publish bar ── */
+  .publish-bar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 20px;
+    background: #FFFBEB;
+    border-top: 1px solid #F59E0B;
+    flex-shrink: 0;
   }
-  .saving-dot.saving { background: var(--rust); animation: pulse 1s infinite; }
-  .saving-dot.saved { background: var(--sage-mid); }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .publish-bar.visible { display: flex; }
+  .publish-bar-msg { font-size: 12px; color: #92400E; font-family: var(--font-body); }
+  .publish-btn {
+    background: #F59E0B; color: #fff; border: none; border-radius: var(--radius-sm);
+    padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: var(--font-body); white-space: nowrap; transition: var(--transition);
+    flex-shrink: 0;
+  }
+  .publish-btn:hover { background: #D97706; }
+  .publish-btn:disabled { opacity: .6; cursor: default; }
+
+  /* ── Update banner ── */
+  .update-banner {
+    display: none;
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: #fff;
+    border-radius: 12px;
+    padding: 14px 20px;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.25);
+    z-index: 2000;
+    font-family: var(--font-body);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .update-banner.visible { display: flex; }
+  .update-btn {
+    background: #fff; color: var(--ink); border: none; border-radius: 8px;
+    padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: var(--font-body); transition: var(--transition);
+  }
+  .update-btn:hover { background: var(--border); }
+  .update-dismiss {
+    background: none; border: none; color: rgba(255,255,255,.6); cursor: pointer;
+    font-size: 16px; padding: 0 0 0 4px; line-height: 1;
+  }
 
   .no-trips-msg { text-align: center; padding: 40px 20px; }
   .no-trips-msg h2 { font-family: var(--font-display); font-size: 24px; margin-bottom: 8px; font-weight: 500; }
@@ -1010,7 +1050,6 @@
     </div>
     <div class="nav-spacer"></div>
     <div class="nav-actions">
-      <span class="saving-dot" id="saving-dot" title="Saving..."></span>
       <button class="btn-export" onclick="exportPDF()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export PDF
@@ -1043,6 +1082,10 @@
         </div>
       </div>
       <div class="sidebar-body" id="sidebar-body"></div>
+      <div class="publish-bar" id="publish-bar">
+        <span class="publish-bar-msg">You have unpublished changes</span>
+        <button class="publish-btn" id="publish-btn" onclick="publishChanges()">Publish changes</button>
+      </div>
       <div class="summary-bar">
         <div class="sum-item"><span class="sum-label">Stops</span><span class="sum-val" id="s-stops">0</span></div>
         <div class="sum-item"><span class="sum-label">Hotels</span><span class="sum-val" id="s-hotels">0</span></div>
@@ -1130,6 +1173,13 @@
   </div>
 </div>
 
+<!-- Update banner -->
+<div class="update-banner" id="update-banner">
+  <span>New changes by <strong id="update-banner-name"></strong></span>
+  <button class="update-btn" onclick="applyUpdate()">Update</button>
+  <button class="update-dismiss" onclick="dismissUpdateBanner()" title="Dismiss">✕</button>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -1169,7 +1219,9 @@ let destinations = [];
 let activeTab = 'destinations';
 let showAddForm = false;
 let dragSrc = null;
-let saveTimer = null;
+let hasUnpublishedChanges = false;
+let tripListener = null;
+let listenerBaseline = null;
 let placesAutocomplete = null;
 let mapInstance = null;
 let directionsRenderer = null;
@@ -1289,10 +1341,24 @@ async function loadTrips() {
 }
 
 async function loadTrip(tripId) {
+  // Reset dirty state
+  hasUnpublishedChanges = false;
+  document.getElementById('publish-bar').classList.remove('visible');
+  dismissUpdateBanner();
+
   currentTripId = tripId;
-  const tripDoc = trips.find(t => t.id === tripId);
+  // Re-fetch trip doc so we always have latest collaborator info
+  let tripDoc = trips.find(t => t.id === tripId);
+  try {
+    const fresh = await db.collection('trips').doc(tripId).get();
+    if (fresh.exists) {
+      tripDoc = { id: fresh.id, ...fresh.data() };
+      const idx = trips.findIndex(t => t.id === tripId);
+      if (idx !== -1) trips[idx] = tripDoc; else trips.unshift(tripDoc);
+    }
+  } catch (e) { /* use cached tripDoc if fetch fails */ }
   if (!tripDoc) return;
-  // Determine role
+
   if (tripDoc.ownerId === currentUser.uid || !tripDoc.ownerId) {
     currentTripRole = 'owner';
   } else {
@@ -1307,53 +1373,95 @@ async function loadTrip(tripId) {
   const snap = await db.collection('trips').doc(tripId).collection('destinations').orderBy('order').get();
   destinations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   renderAll();
+  setupTripListener(tripId);
 }
 
 function scheduleSave() {
-  const dot = document.getElementById('saving-dot');
-  dot.classList.add('saving');
-  dot.classList.remove('saved');
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveCurrentTrip, 1200);
+  if (currentTripRole === 'viewer') return;
+  hasUnpublishedChanges = true;
+  document.getElementById('publish-bar').classList.add('visible');
 }
 
 async function saveCurrentTrip() {
   if (!currentUser || !currentTripId) return;
   if (currentTripRole === 'viewer') return;
+  const tripName = document.getElementById('trip-name-input').value || 'Untitled Trip';
+  await db.collection('trips').doc(currentTripId).set({
+    name: tripName,
+    startDate: currentTripStartDate,
+    endDate: currentTripEndDate,
+    lastEditedBy: currentUser.uid,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  const batch = db.batch();
+  const destRef = db.collection('trips').doc(currentTripId).collection('destinations');
+  const existing = await destRef.get();
+  existing.docs.forEach(d => batch.delete(d.ref));
+  destinations.forEach((dest, i) => batch.set(destRef.doc(dest.id), { ...dest, order: i }));
+  await batch.commit();
+
+  const idx = trips.findIndex(t => t.id === currentTripId);
+  if (idx >= 0) trips[idx].name = tripName;
+  renderTripSelector();
+}
+
+async function publishChanges() {
+  if (!currentUser || !currentTripId || currentTripRole === 'viewer') return;
+  const btn = document.getElementById('publish-btn');
+  btn.textContent = 'Publishing…';
+  btn.disabled = true;
   try {
-    const tripName = document.getElementById('trip-name-input').value || 'Untitled Trip';
-    await db.collection('trips').doc(currentTripId).set({
-      name: tripName,
-      startDate: currentTripStartDate,
-      endDate: currentTripEndDate,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    const batch = db.batch();
-    const destRef = db.collection('trips').doc(currentTripId).collection('destinations');
-    // Delete existing
-    const existing = await destRef.get();
-    existing.docs.forEach(d => batch.delete(d.ref));
-    // Re-add all
-    destinations.forEach((dest, i) => {
-      const ref = destRef.doc(dest.id);
-      batch.set(ref, { ...dest, order: i });
-    });
-    await batch.commit();
-
-    const dot = document.getElementById('saving-dot');
-    dot.classList.remove('saving');
-    dot.classList.add('saved');
-    setTimeout(() => dot.classList.remove('saved'), 2000);
-
-    // Update local trips array
-    const idx = trips.findIndex(t => t.id === currentTripId);
-    if (idx >= 0) trips[idx].name = tripName;
-    renderTripSelector();
+    await saveCurrentTrip();
+    hasUnpublishedChanges = false;
+    document.getElementById('publish-bar').classList.remove('visible');
+    showToast('Changes published');
   } catch (e) {
-    console.error('Save error:', e);
-    showToast('Could not save — check your connection');
+    console.error('Publish error:', e);
+    showToast('Could not publish — check your connection');
+  } finally {
+    btn.textContent = 'Publish changes';
+    btn.disabled = false;
   }
+}
+
+function setupTripListener(tripId) {
+  if (tripListener) { tripListener(); tripListener = null; }
+  listenerBaseline = null;
+  tripListener = db.collection('trips').doc(tripId).onSnapshot(snap => {
+    if (!snap.exists) return;
+    const data = snap.data();
+    const newMs = data.updatedAt?.toMillis?.() || 0;
+    if (listenerBaseline === null) { listenerBaseline = newMs; return; }
+    if (newMs > listenerBaseline) {
+      listenerBaseline = newMs;
+      if (data.lastEditedBy && data.lastEditedBy !== currentUser.uid) {
+        const collab = data.collaborators?.[data.lastEditedBy];
+        const name = collab?.name || (data.lastEditedBy === data.ownerId ? (data.ownerName || 'Owner') : 'Someone');
+        showUpdateBanner(name);
+      }
+    }
+  });
+}
+
+function showUpdateBanner(name) {
+  document.getElementById('update-banner-name').textContent = name;
+  document.getElementById('update-banner').classList.add('visible');
+}
+
+function dismissUpdateBanner() {
+  document.getElementById('update-banner').classList.remove('visible');
+}
+
+async function applyUpdate() {
+  dismissUpdateBanner();
+  if (hasUnpublishedChanges) {
+    if (!confirm('You have unpublished changes. Updating will discard them. Continue?')) return;
+    hasUnpublishedChanges = false;
+    document.getElementById('publish-bar').classList.remove('visible');
+  }
+  await loadTrip(currentTripId);
+  showToast('Trip updated');
 }
 
 function renderTripSelector() {
@@ -1366,7 +1474,12 @@ function renderTripSelector() {
 }
 
 async function switchTrip(id) {
-  await saveCurrentTrip();
+  if (hasUnpublishedChanges) {
+    if (!confirm('You have unpublished changes. Switch trips and discard them?')) {
+      document.getElementById('trip-selector').value = currentTripId;
+      return;
+    }
+  }
   await loadTrip(id);
 }
 
