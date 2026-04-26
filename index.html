@@ -203,6 +203,15 @@
   }
   .btn-new-trip:hover { background: #3A5240; }
 
+  .btn-delete-trip {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; flex-shrink: 0;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: transparent; cursor: pointer; color: var(--muted);
+    transition: var(--transition);
+  }
+  .btn-delete-trip:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-light); }
+
   .nav-spacer { flex: 1; }
 
   .nav-actions { display: flex; align-items: center; gap: 8px; }
@@ -1046,6 +1055,9 @@
     <div class="nav-logo">S<span>ojourn</span></div>
     <div class="nav-trip-select">
       <select class="trip-selector" id="trip-selector" onchange="switchTrip(this.value)"></select>
+      <button class="btn-delete-trip" onclick="deleteCurrentTrip()" title="Delete trip">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button>
       <button class="btn-new-trip" onclick="openNewTripModal()">+ New</button>
     </div>
     <div class="nav-spacer"></div>
@@ -1491,6 +1503,47 @@ async function switchTrip(id) {
     }
   }
   await loadTrip(id);
+}
+
+async function deleteCurrentTrip() {
+  if (!currentTripId) return;
+  const trip = trips.find(t => t.id === currentTripId);
+  const isOwner = trip?.ownerId === currentUser.uid || !trip?.ownerId;
+  const tripName = trip?.name || 'this trip';
+  const action = isOwner ? 'delete' : 'leave';
+  const msg = isOwner
+    ? `Delete "${tripName}"? This cannot be undone.`
+    : `Leave "${tripName}"? You'll lose access unless re-invited.`;
+  if (!confirm(msg)) return;
+  try {
+    clearTimeout(saveTimer);
+    if (isOwner) {
+      // Delete all destinations then the trip doc
+      const destSnap = await db.collection('trips').doc(currentTripId).collection('destinations').get();
+      const batch = db.batch();
+      destSnap.docs.forEach(d => batch.delete(d.ref));
+      batch.delete(db.collection('trips').doc(currentTripId));
+      await batch.commit();
+    } else {
+      // Remove self from collaborators
+      await db.collection('trips').doc(currentTripId).update({
+        [`collaborators.${currentUser.uid}`]: firebase.firestore.FieldValue.delete(),
+        collaboratorIds: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
+      });
+    }
+    trips = trips.filter(t => t.id !== currentTripId);
+    currentTripId = null;
+    if (trips.length > 0) {
+      await loadTrip(trips[0].id);
+      renderTripSelector();
+    } else {
+      await createNewTripWithName('My First Trip');
+    }
+    showToast(isOwner ? 'Trip deleted' : 'Left trip');
+  } catch (e) {
+    console.error('Delete trip error:', e);
+    showToast('Could not delete trip');
+  }
 }
 
 function openNewTripModal() {
