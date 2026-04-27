@@ -905,6 +905,80 @@
   .no-trips-msg h2 { font-family: var(--font-display); font-size: 24px; margin-bottom: 8px; font-weight: 500; }
   .no-trips-msg p { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
 
+  /* ── Trip type picker (new trip modal) ── */
+  .trip-type-picker { display: flex; gap: 10px; margin-bottom: 16px; }
+  .trip-type-card {
+    flex: 1; padding: 14px 10px; border: 2px solid var(--border);
+    border-radius: var(--radius); cursor: pointer; text-align: center;
+    transition: var(--transition); background: var(--white); user-select: none;
+  }
+  .trip-type-card:hover { border-color: var(--sage-mid); background: var(--sage-light); }
+  .trip-type-card.selected { border-color: var(--sage); background: var(--sage-light); }
+  .trip-type-icon { font-size: 22px; margin-bottom: 5px; }
+  .trip-type-label { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .trip-type-desc { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
+  /* ── Vacation mode ── */
+  .vacation-base-banner {
+    background: var(--sage-light); border: 1px solid var(--sage-mid);
+    border-radius: var(--radius); padding: 10px 14px; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .vacation-base-icon { font-size: 18px; flex-shrink: 0; }
+  .vacation-base-info { flex: 1; min-width: 0; }
+  .vacation-base-label { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: var(--sage); font-weight: 500; }
+  .vacation-base-name { font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .day-nav {
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .day-nav-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-right: 2px; }
+  .day-chip {
+    padding: 4px 12px; border: 1px solid var(--border);
+    border-radius: 999px; font-size: 12px; font-weight: 500;
+    color: var(--muted); background: var(--white); cursor: pointer;
+    transition: var(--transition); white-space: nowrap;
+  }
+  .day-chip:hover { border-color: var(--sage-mid); color: var(--sage); }
+  .day-chip.active { border-color: var(--sage); background: var(--sage); color: var(--white); }
+  .day-chip-add {
+    padding: 4px 10px; border: 1px dashed var(--border-dark);
+    border-radius: 999px; font-size: 12px; color: var(--muted);
+    background: transparent; cursor: pointer; transition: var(--transition);
+  }
+  .day-chip-add:hover { border-color: var(--sage-mid); color: var(--sage); }
+
+  .day-section-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted); margin-bottom: 8px; padding: 0 2px;
+  }
+
+  /* ── Destination selection ── */
+  .dest-card.selected { border-color: var(--sage); box-shadow: 0 0 0 2px var(--sage-light); }
+  .dest-select-check {
+    width: 18px; height: 18px; flex-shrink: 0;
+    border: 1.5px solid var(--border-dark); border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: var(--transition); margin-top: 4px;
+    background: var(--white); font-size: 11px; color: transparent;
+  }
+  .dest-select-check.checked { background: var(--sage); border-color: var(--sage); color: var(--white); }
+  .selection-summary {
+    background: var(--sage-light); border: 1px solid var(--sage-mid);
+    border-radius: var(--radius); padding: 10px 14px; margin-bottom: 10px;
+    animation: fadeIn .2s ease;
+  }
+  .selection-summary-hd {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--sage); margin-bottom: 8px; font-weight: 500;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .sel-clear-btn { background: none; border: none; color: var(--sage); cursor: pointer; font-size: 11px; font-family: var(--font-body); text-decoration: underline; }
+  .selection-meta { display: flex; gap: 14px; flex-wrap: wrap; }
+  .sel-meta-item { font-size: 12px; color: var(--ink-soft); }
+  .sel-meta-val { font-weight: 600; color: var(--ink); }
+
   /* Google Places Autocomplete dropdown */
   .pac-container {
     border: 1px solid var(--border-dark);
@@ -1088,9 +1162,9 @@
           </button>
         </div>
         <div id="trip-date-range" class="trip-date-range"></div>
-        <div class="tabs">
-          <button class="tab active" onclick="switchTab('destinations')">Destinations</button>
-          <button class="tab" onclick="switchTab('hotels')">Hotels</button>
+        <div class="tabs" id="sidebar-tabs">
+          <button class="tab active" id="tab-primary" onclick="switchTab('destinations')">Destinations</button>
+          <button class="tab" id="tab-secondary" onclick="switchTab('hotels')">Hotels</button>
         </div>
       </div>
       <div class="sidebar-body" id="sidebar-body"></div>
@@ -1115,9 +1189,9 @@
         </button>
         <span class="map-title" id="map-title">Route Map</span>
         <span class="map-stops-badge" id="map-stops-badge">0 stops</span>
-        <button class="btn-route" onclick="showRoute()">
+        <button class="btn-route" onclick="showRoute()" id="btn-show-route" title="Refresh route">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="3" cy="6" r="2"/><circle cx="21" cy="12" r="2"/><circle cx="3" cy="18" r="2"/><path d="M5 6h5a6 6 0 016 6v0a6 6 0 006 6"/><path d="M5 18h5"/></svg>
-          Show Route
+          Route
         </button>
       </div>
       <div class="route-summary" id="route-summary"></div>
@@ -1125,7 +1199,7 @@
         <div class="map-placeholder" id="map-placeholder">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
           <div class="map-ph-title">Your route awaits</div>
-          <div class="map-ph-sub">Add at least two destinations, then click Show Route to see your journey on the map</div>
+          <div class="map-ph-sub">Add your first destination — the map will generate automatically</div>
         </div>
         <div id="map-div"></div>
       </div>
@@ -1155,15 +1229,29 @@
 <div class="modal-backdrop" id="new-trip-modal">
   <div class="modal">
     <h2>New trip</h2>
-    <p>Name your adventure and pick your travel dates</p>
-    <input class="form-input" id="new-trip-name-input" placeholder="e.g. Pacific Coast Highway, Europe Summer 2025..." />
+    <div class="trip-type-picker">
+      <div class="trip-type-card selected" id="type-card-trip" onclick="selectTripType('trip')">
+        <div class="trip-type-icon">✈️</div>
+        <div class="trip-type-label">Trip</div>
+        <div class="trip-type-desc">Moving between cities or countries</div>
+      </div>
+      <div class="trip-type-card" id="type-card-vacation" onclick="selectTripType('vacation')">
+        <div class="trip-type-icon">🏖️</div>
+        <div class="trip-type-label">Vacation</div>
+        <div class="trip-type-desc">Based in one place, exploring each day</div>
+      </div>
+    </div>
+    <input class="form-input" id="new-trip-name-input" placeholder="e.g. Pacific Coast Highway, Paris 2025..." />
+    <div id="vacation-base-field" style="display:none">
+      <input class="form-input" id="new-base-location" placeholder="Base location (e.g. Paris, France)" />
+    </div>
     <div class="modal-cal-wrap">
       <input id="trip-date-picker" type="text" style="display:none" />
     </div>
     <div class="trip-range-display" id="trip-range-display"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn-primary" onclick="createNewTrip()">Create Trip</button>
+      <button class="btn-primary" onclick="createNewTrip()">Create</button>
     </div>
   </div>
 </div>
@@ -1239,8 +1327,16 @@ let saveTimer = null;
 let placesAutocomplete = null;
 let mapInstance = null;
 let directionsRenderer = null;
+let mapMarker = null;
 let tripDatePicker = null;
 let routeLegs = [];
+let routeTimer = null;
+let currentTripType = 'trip';
+let currentVacationDay = 1;
+let vacationBaseLocation = '';
+let vacationTotalDays = 1;
+let selectedDestIds = new Set();
+let pendingTripType = 'trip';
 
 // ── Auth ──
 // Handle redirect result on load (for iOS in-app browsers that block popups)
@@ -1392,11 +1488,18 @@ async function loadTrip(tripId) {
   document.getElementById('print-trip-name').textContent = tripDoc.name || 'Untitled Trip';
   currentTripStartDate = tripDoc.startDate || '';
   currentTripEndDate = tripDoc.endDate || '';
+  currentTripType = tripDoc.type || 'trip';
+  vacationBaseLocation = tripDoc.baseLocation || '';
+  currentVacationDay = 1;
+  selectedDestIds = new Set();
   updateTripDateRange();
+  updateTabLabels();
+  resetMap();
 
   const snap = await db.collection('trips').doc(tripId).collection('destinations').orderBy('order').get();
   destinations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   renderAll();
+  scheduleRoute();
   setupTripListener(tripId);
 }
 
@@ -1417,6 +1520,8 @@ async function saveCurrentTrip() {
       name: tripName,
       startDate: currentTripStartDate,
       endDate: currentTripEndDate,
+      type: currentTripType,
+      baseLocation: vacationBaseLocation,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     const batch = db.batch();
@@ -1557,6 +1662,10 @@ async function deleteCurrentTrip() {
 }
 
 function openNewTripModal() {
+  pendingTripType = 'trip';
+  document.getElementById('type-card-trip').classList.add('selected');
+  document.getElementById('type-card-vacation').classList.remove('selected');
+  document.getElementById('vacation-base-field').style.display = 'none';
   document.getElementById('new-trip-modal').classList.add('open');
   setTimeout(() => {
     document.getElementById('new-trip-name-input').focus();
@@ -1587,8 +1696,17 @@ function openNewTripModal() {
 function closeModal() {
   document.getElementById('new-trip-modal').classList.remove('open');
   document.getElementById('new-trip-name-input').value = '';
+  const baseFld = document.getElementById('new-base-location');
+  if (baseFld) baseFld.value = '';
   if (tripDatePicker) { tripDatePicker.clear(); }
   document.getElementById('trip-range-display').textContent = '';
+}
+
+function selectTripType(type) {
+  pendingTripType = type;
+  document.getElementById('type-card-trip').classList.toggle('selected', type === 'trip');
+  document.getElementById('type-card-vacation').classList.toggle('selected', type === 'vacation');
+  document.getElementById('vacation-base-field').style.display = type === 'vacation' ? 'block' : 'none';
 }
 
 async function createNewTrip() {
@@ -1596,15 +1714,19 @@ async function createNewTrip() {
   const dates = tripDatePicker?.selectedDates || [];
   const startDate = dates[0] ? toISODate(dates[0]) : '';
   const endDate = dates[1] ? toISODate(dates[1]) : '';
+  const type = pendingTripType;
+  const baseLocation = type === 'vacation' ? (document.getElementById('new-base-location')?.value.trim() || '') : '';
   closeModal();
-  await createNewTripWithName(name, startDate, endDate);
+  await createNewTripWithName(name, startDate, endDate, type, baseLocation);
 }
 
-async function createNewTripWithName(name, startDate, endDate) {
+async function createNewTripWithName(name, startDate, endDate, type, baseLocation) {
   startDate = startDate || '';
   endDate = endDate || '';
+  type = type || 'trip';
+  baseLocation = baseLocation || '';
   const ref = await db.collection('trips').add({
-    name, startDate, endDate,
+    name, startDate, endDate, type, baseLocation,
     ownerId: currentUser.uid,
     ownerName: currentUser.displayName || '',
     collaborators: {},
@@ -1613,14 +1735,20 @@ async function createNewTripWithName(name, startDate, endDate) {
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
-  trips.unshift({ id: ref.id, name, startDate, endDate, ownerId: currentUser.uid, ownerName: currentUser.displayName || '', collaborators: {}, collaboratorIds: [] });
+  trips.unshift({ id: ref.id, name, startDate, endDate, type, baseLocation, ownerId: currentUser.uid, ownerName: currentUser.displayName || '', collaborators: {}, collaboratorIds: [] });
   currentTripId = ref.id;
   currentTripRole = 'owner';
   currentTripStartDate = startDate;
   currentTripEndDate = endDate;
+  currentTripType = type;
+  vacationBaseLocation = baseLocation;
+  currentVacationDay = 1;
+  selectedDestIds = new Set();
   destinations = [];
+  resetMap();
   document.getElementById('trip-name-input').value = name;
   updateTripDateRange();
+  updateTabLabels();
   renderTripSelector();
   renderAll();
   showToast('New trip created');
@@ -1770,11 +1898,27 @@ function updateTripDateRange() {
 }
 
 // ── Tab ──
+function updateTabLabels() {
+  const p = document.getElementById('tab-primary');
+  const s = document.getElementById('tab-secondary');
+  if (!p || !s) return;
+  if (currentTripType === 'vacation') {
+    p.textContent = 'Itinerary';
+    p.onclick = () => switchTab('destinations');
+    s.textContent = 'Overview';
+    s.onclick = () => switchTab('hotels');
+  } else {
+    p.textContent = 'Destinations';
+    p.onclick = () => switchTab('destinations');
+    s.textContent = 'Hotels';
+    s.onclick = () => switchTab('hotels');
+  }
+}
+
 function switchTab(tab) {
   activeTab = tab;
-  document.querySelectorAll('.tab').forEach((t, i) =>
-    t.classList.toggle('active', (i === 0 && tab === 'destinations') || (i === 1 && tab === 'hotels'))
-  );
+  document.getElementById('tab-primary').classList.toggle('active', tab === 'destinations');
+  document.getElementById('tab-secondary').classList.toggle('active', tab === 'hotels');
   render();
 }
 
@@ -1797,14 +1941,19 @@ function renderDestinations() {
   const viewerBanner = currentTripRole === 'viewer'
     ? `<div class="viewer-banner">👁 You're viewing this trip — contact the owner for edit access</div>`
     : '';
+  if (currentTripType === 'vacation') return viewerBanner + renderVacationItinerary();
+  return viewerBanner + renderTripDestinations();
+}
+
+function renderTripDestinations() {
+  const isViewer = currentTripRole === 'viewer';
   if (destinations.length === 0 && !showAddForm) {
-    return viewerBanner + `<div class="empty-state"><strong>No stops yet</strong>Add your first destination below to begin planning your journey.</div>` + renderAddSection();
+    return `<div class="empty-state"><strong>No stops yet</strong>Add your first destination below to begin planning your journey.</div>` + renderAddSection();
   }
   const totalDays = getTotalTripDays();
   const computed = computeDates();
   const hasLegs = routeLegs.length === destinations.length - 1;
-  const isViewer = currentTripRole === 'viewer';
-  return viewerBanner + destinations.map((d, i) => {
+  return renderSelectionSummary() + destinations.map((d, i) => {
     const dates = computed[i];
     const dateStr = dates ? `${formatDateShort(dates.from)} – ${formatDateShort(dates.to)}` : '';
     const leg = hasLegs && i < destinations.length - 1 ? routeLegs[i] : null;
@@ -1817,9 +1966,11 @@ function renderDestinations() {
            <div class="leg-connector-line"></div>
          </div>`
       : '';
+    const isSelected = selectedDestIds.has(d.id);
     return `
-    <div class="dest-card" draggable="${!isViewer}" data-id="${d.id}">
+    <div class="dest-card${isSelected ? ' selected' : ''}" draggable="${!isViewer}" data-id="${d.id}">
       <div class="dest-header">
+        <div class="dest-select-check${isSelected ? ' checked' : ''}" onclick="toggleDestSelection('${d.id}')">${isSelected ? '✓' : ''}</div>
         ${!isViewer ? '<span class="drag-handle">⠿</span>' : ''}
         <div class="stop-num ${d.hasHotel ? 'has-hotel' : ''}">${String.fromCharCode(65 + i)}</div>
         <div class="dest-info">
@@ -1856,36 +2007,112 @@ function renderDestinations() {
   }).join('') + renderAddSection();
 }
 
+function renderVacationItinerary() {
+  const isViewer = currentTripRole === 'viewer';
+  const totalDays = Math.max(vacationTotalDays, getTotalTripDays() || 1,
+    destinations.length ? Math.max(...destinations.map(d => d.day || 1)) : 1);
+  vacationTotalDays = totalDays;
+
+  const baseBanner = vacationBaseLocation
+    ? `<div class="vacation-base-banner">
+        <div class="vacation-base-icon">📍</div>
+        <div class="vacation-base-info">
+          <div class="vacation-base-label">Base location</div>
+          <div class="vacation-base-name">${esc(vacationBaseLocation)}</div>
+        </div>
+      </div>`
+    : '';
+
+  const dayChips = Array.from({ length: totalDays }, (_, i) => i + 1).map(day =>
+    `<button class="day-chip${day === currentVacationDay ? ' active' : ''}" onclick="setVacationDay(${day})">Day ${day}</button>`
+  ).join('');
+  const addDayBtn = !isViewer
+    ? `<button class="day-chip-add" onclick="addVacationDay()">+ Day</button>`
+    : '';
+
+  const dayNav = `<div class="day-nav"><span class="day-nav-label">Day</span>${dayChips}${addDayBtn}</div>`;
+
+  const dayDests = destinations.filter(d => (d.day || 1) === currentVacationDay);
+  const isSelected = id => selectedDestIds.has(id);
+
+  let cardsHtml = '';
+  if (dayDests.length === 0 && !showAddForm) {
+    cardsHtml = `<div class="empty-state" style="padding:20px 0"><strong>Nothing planned for Day ${currentVacationDay}</strong>Add your first activity below.</div>`;
+  } else {
+    cardsHtml = renderSelectionSummary() + dayDests.map((d, i) => {
+      const sel = isSelected(d.id);
+      return `
+      <div class="dest-card${sel ? ' selected' : ''}" draggable="${!isViewer}" data-id="${d.id}">
+        <div class="dest-header">
+          <div class="dest-select-check${sel ? ' checked' : ''}" onclick="toggleDestSelection('${d.id}')">${sel ? '✓' : ''}</div>
+          ${!isViewer ? '<span class="drag-handle">⠿</span>' : ''}
+          <div class="stop-num">${String.fromCharCode(65 + i)}</div>
+          <div class="dest-info">
+            <input class="dest-name-input" value="${esc(d.name)}" placeholder="Place or activity"
+              onchange="updateDestField('${d.id}','name',this.value)" ${isViewer ? 'disabled' : ''} />
+          </div>
+          <div class="dest-actions">
+            ${!isViewer ? `<button class="icon-btn danger" onclick="removeDest('${d.id}')">✕</button>` : ''}
+          </div>
+        </div>
+        <div class="notes-row">
+          <textarea class="notes-input" rows="1" placeholder="Notes, tips, opening hours..."
+            onchange="updateDestField('${d.id}','notes',this.value)" ${isViewer ? 'disabled' : ''}>${esc(d.notes || '')}</textarea>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  return baseBanner + dayNav + cardsHtml + renderAddSection();
+}
+
+function setVacationDay(day) {
+  currentVacationDay = day;
+  selectedDestIds = new Set();
+  render();
+  scheduleRoute();
+}
+
+function addVacationDay() {
+  vacationTotalDays += 1;
+  currentVacationDay = vacationTotalDays;
+  render();
+}
+
 function renderAddSection() {
   if (currentTripRole === 'viewer') return '';
+  const isVacation = currentTripType === 'vacation';
   if (showAddForm) {
     const totalDays = getTotalTripDays();
+    const tripFields = isVacation ? '' : `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <input type="number" class="form-input" id="new-dest-nights" value="1" min="0"${totalDays ? ` max="${totalDays}"` : ''} style="max-width:72px;margin-bottom:0;text-align:center" />
+        <span style="font-size:13px;color:var(--muted)">nights${totalDays ? ` (trip is ${totalDays} days)` : ''}</span>
+      </div>
+      <label class="check-label" style="margin-top:4px">
+        <input type="checkbox" id="new-has-hotel" onchange="toggleNewHotelFields()" />
+        Add hotel at this stop
+      </label>
+      <div id="new-hotel-fields" style="display:none;margin-top:10px">
+        <input class="form-input" id="new-hotel-name" placeholder="Hotel name" style="margin-bottom:0" />
+      </div>`;
     return `
       <div class="add-section">
         <div class="add-form">
-          <input class="form-input" id="new-dest-name" placeholder="City, region or landmark (e.g. Lisbon, Portugal)" />
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-            <input type="number" class="form-input" id="new-dest-nights" value="1" min="0"${totalDays ? ` max="${totalDays}"` : ''} style="max-width:72px;margin-bottom:0;text-align:center" />
-            <span style="font-size:13px;color:var(--muted)">nights${totalDays ? ` (trip is ${totalDays} days)` : ''}</span>
-          </div>
-          <label class="check-label" style="margin-top:4px">
-            <input type="checkbox" id="new-has-hotel" onchange="toggleNewHotelFields()" />
-            Add hotel at this stop
-          </label>
-          <div id="new-hotel-fields" style="display:none;margin-top:10px">
-            <input class="form-input" id="new-hotel-name" placeholder="Hotel name" style="margin-bottom:0" />
-          </div>
+          <input class="form-input" id="new-dest-name" placeholder="${isVacation ? 'Place, attraction or activity...' : 'City, region or landmark (e.g. Lisbon, Portugal)'}" />
+          ${tripFields}
           <div class="form-actions">
             <button class="btn-cancel" onclick="cancelAdd()">Cancel</button>
-            <button class="btn-primary" onclick="addDestination()">Add stop</button>
+            <button class="btn-primary" onclick="addDestination()">${isVacation ? 'Add activity' : 'Add stop'}</button>
           </div>
         </div>
       </div>`;
   }
-  return `<div class="add-section"><button class="open-add-btn" onclick="openAddForm()">+ Add destination</button></div>`;
+  return `<div class="add-section"><button class="open-add-btn" onclick="openAddForm()">+ ${isVacation ? 'Add activity' : 'Add destination'}</button></div>`;
 }
 
 function renderHotels() {
+  if (currentTripType === 'vacation') return renderVacationOverview();
   const hotelDests = destinations.filter(d => d.hasHotel);
   if (hotelDests.length === 0) {
     return `<div class="empty-state"><strong>No hotels yet</strong>Toggle the 🏨 button on any destination to plan a hotel stay there.</div>`;
@@ -1912,14 +2139,77 @@ function renderHotels() {
   }).join('');
 }
 
+function renderVacationOverview() {
+  const totalDays = Math.max(vacationTotalDays, getTotalTripDays() || 1,
+    destinations.length ? Math.max(...destinations.map(d => d.day || 1)) : 1);
+  const baseBanner = vacationBaseLocation
+    ? `<div class="vacation-base-banner" style="margin-bottom:16px">
+        <div class="vacation-base-icon">🏨</div>
+        <div class="vacation-base-info">
+          <div class="vacation-base-label">Staying at</div>
+          <div class="vacation-base-name">${esc(vacationBaseLocation)}</div>
+        </div>
+      </div>`
+    : '';
+  if (destinations.length === 0) {
+    return baseBanner + `<div class="empty-state"><strong>No activities yet</strong>Switch to Itinerary and add activities for each day.</div>`;
+  }
+  let html = baseBanner;
+  for (let day = 1; day <= totalDays; day++) {
+    const dayDests = destinations.filter(d => (d.day || 1) === day);
+    const dayLabel = currentTripStartDate
+      ? (() => {
+          const d = new Date(currentTripStartDate + 'T12:00:00');
+          d.setDate(d.getDate() + day - 1);
+          return `Day ${day} — ${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+        })()
+      : `Day ${day}`;
+    html += `<div style="margin-bottom:14px">
+      <div class="day-section-label" style="display:flex;align-items:center;justify-content:space-between">
+        <span>${dayLabel}</span>
+        <button class="day-chip" onclick="setVacationDay(${day})" style="font-size:11px;padding:2px 8px">View</button>
+      </div>`;
+    if (dayDests.length === 0) {
+      html += `<div style="font-size:12px;color:var(--muted);padding:8px 0 4px">Nothing planned</div>`;
+    } else {
+      html += dayDests.map(d => `<div style="font-size:13px;color:var(--ink-soft);padding:4px 0;border-bottom:1px solid var(--border)">📍 ${esc(d.name)}${d.notes ? ` <span style="color:var(--muted);font-size:11px">— ${esc(d.notes.substring(0,40))}</span>` : ''}</div>`).join('');
+    }
+    html += '</div>';
+  }
+  return html;
+}
+
 function updateSummary() {
-  const hotels = destinations.filter(d => d.hasHotel);
-  const nights = destinations.reduce((s, d) => s + (parseInt(d.nights) || 0), 0);
-  document.getElementById('s-stops').textContent = destinations.length;
-  document.getElementById('s-hotels').textContent = hotels.length;
-  document.getElementById('s-nights').textContent = nights;
-  const type = destinations.length > 6 ? 'Epic tour' : destinations.length > 3 ? 'Road trip' : destinations.length > 1 ? 'Multi-city' : destinations.length === 1 ? 'Day trip' : '—';
-  document.getElementById('s-type').textContent = type;
+  if (currentTripType === 'vacation') {
+    const totalDays = Math.max(vacationTotalDays, getTotalTripDays() || 1,
+      destinations.length ? Math.max(...destinations.map(d => d.day || 1)) : 1);
+    const dayDests = destinations.filter(d => (d.day || 1) === currentVacationDay);
+    document.getElementById('s-stops').textContent = dayDests.length;
+    document.getElementById('s-hotels').textContent = totalDays;
+    document.getElementById('s-nights').textContent = destinations.length;
+    document.getElementById('s-type').textContent = 'Vacation';
+    // Relabel summary bar items for vacation context
+    document.querySelector('#s-stops')?.closest('.sum-item')?.querySelector('.sum-label')?.setAttribute('data-orig', 'Today');
+    const labels = document.querySelectorAll('.sum-label');
+    if (labels[0]) labels[0].textContent = 'Today';
+    if (labels[1]) labels[1].textContent = 'Days';
+    if (labels[2]) labels[2].textContent = 'Activities';
+    if (labels[3]) labels[3].textContent = 'Type';
+  } else {
+    const hotels = destinations.filter(d => d.hasHotel);
+    const nights = destinations.reduce((s, d) => s + (parseInt(d.nights) || 0), 0);
+    document.getElementById('s-stops').textContent = destinations.length;
+    document.getElementById('s-hotels').textContent = hotels.length;
+    document.getElementById('s-nights').textContent = nights;
+    const type = destinations.length > 6 ? 'Epic tour' : destinations.length > 3 ? 'Road trip' : destinations.length > 1 ? 'Multi-city' : destinations.length === 1 ? 'Day trip' : '—';
+    document.getElementById('s-type').textContent = type;
+    // Restore original labels
+    const labels = document.querySelectorAll('.sum-label');
+    if (labels[0]) labels[0].textContent = 'Stops';
+    if (labels[1]) labels[1].textContent = 'Hotels';
+    if (labels[2]) labels[2].textContent = 'Nights';
+    if (labels[3]) labels[3].textContent = 'Type';
+  }
 }
 
 function updateMapBadge() {
@@ -1966,29 +2256,43 @@ function addDestination() {
   if (currentTripRole === 'viewer') return;
   const name = document.getElementById('new-dest-name')?.value.trim();
   if (!name) { showToast('Please enter a destination name'); return; }
-  const hasHotel = document.getElementById('new-has-hotel')?.checked;
-  const dest = {
-    id: 'dest_' + Date.now(),
-    name,
-    nights: parseInt(document.getElementById('new-dest-nights')?.value) || 0,
-    hasHotel,
-    hotelName: hasHotel ? (document.getElementById('new-hotel-name')?.value.trim() || '') : '',
-    notes: '',
-    order: destinations.length
-  };
+  let dest;
+  if (currentTripType === 'vacation') {
+    dest = {
+      id: 'dest_' + Date.now(),
+      name,
+      day: currentVacationDay,
+      notes: '',
+      order: destinations.length
+    };
+  } else {
+    const hasHotel = document.getElementById('new-has-hotel')?.checked;
+    dest = {
+      id: 'dest_' + Date.now(),
+      name,
+      nights: parseInt(document.getElementById('new-dest-nights')?.value) || 0,
+      hasHotel,
+      hotelName: hasHotel ? (document.getElementById('new-hotel-name')?.value.trim() || '') : '',
+      notes: '',
+      order: destinations.length
+    };
+  }
   destinations.push(dest);
   showAddForm = false;
   clearRoute();
   renderAll();
   scheduleSave();
+  scheduleRoute();
 }
 
 function removeDest(id) {
   if (currentTripRole === 'viewer') return;
   destinations = destinations.filter(d => d.id !== id);
+  selectedDestIds.delete(id);
   clearRoute();
   renderAll();
   scheduleSave();
+  scheduleRoute();
 }
 
 function toggleHotel(id) {
@@ -2072,13 +2376,64 @@ function clearRoute() {
   if (summary) summary.classList.remove('visible');
 }
 
-function showRoute() {
-  if (destinations.length < 2) { showToast('Add at least 2 destinations to see a route'); return; }
-  if (!window.google?.maps) { showToast('Maps is still loading — try again in a moment'); return; }
-
+function resetMap() {
+  clearRoute();
+  if (directionsRenderer) { directionsRenderer.setMap(null); directionsRenderer = null; }
+  if (mapMarker) { mapMarker.setMap(null); mapMarker = null; }
   const mapDiv = document.getElementById('map-div');
   const ph = document.getElementById('map-placeholder');
+  if (mapDiv) mapDiv.style.display = 'none';
+  if (ph) ph.style.display = '';
+}
 
+function scheduleRoute() {
+  clearTimeout(routeTimer);
+  routeTimer = setTimeout(() => {
+    if (currentTripType === 'vacation') {
+      const dayDests = destinations.filter(d => (d.day || 1) === currentVacationDay);
+      if (dayDests.length > 0) showRoute();
+    } else {
+      if (destinations.length > 0) showRoute();
+    }
+  }, 1200);
+}
+
+// ── Destination selection ──
+function toggleDestSelection(id) {
+  if (selectedDestIds.has(id)) selectedDestIds.delete(id);
+  else selectedDestIds.add(id);
+  render();
+}
+
+function renderSelectionSummary() {
+  if (selectedDestIds.size === 0) return '';
+  const sel = destinations.filter(d => selectedDestIds.has(d.id));
+  const nights = sel.reduce((s, d) => s + (parseInt(d.nights) || 0), 0);
+  const hotels = sel.filter(d => d.hasHotel).length;
+  const names = sel.map(d => d.name.split(',')[0]).join(' → ');
+  const nightsStr = currentTripType === 'vacation' ? '' :
+    `<span class="sel-meta-item"><span class="sel-meta-val">${nights}</span> nights</span>`;
+  const hotelsStr = currentTripType === 'vacation' ? '' :
+    `<span class="sel-meta-item"><span class="sel-meta-val">${hotels}</span> hotels</span>`;
+  return `<div class="selection-summary">
+    <div class="selection-summary-hd">
+      <span>${selectedDestIds.size} selected</span>
+      <button class="sel-clear-btn" onclick="clearSelection()">Clear</button>
+    </div>
+    <div class="selection-meta">
+      <span class="sel-meta-item" style="color:var(--ink-soft);font-size:11px">${esc(names)}</span>
+      ${nightsStr}${hotelsStr}
+    </div>
+  </div>`;
+}
+
+function clearSelection() {
+  selectedDestIds = new Set();
+  render();
+}
+
+function getOrCreateMap() {
+  const mapDiv = document.getElementById('map-div');
   if (!mapInstance) {
     mapInstance = new google.maps.Map(mapDiv, {
       zoom: 7,
@@ -2088,36 +2443,103 @@ function showRoute() {
       fullscreenControl: true,
     });
   }
+  mapDiv.style.display = 'block';
+  document.getElementById('map-placeholder').style.display = 'none';
+  return mapInstance;
+}
 
+function showRoute() {
+  if (!window.google?.maps) { showToast('Maps is still loading — try again in a moment'); return; }
+
+  const isVacation = currentTripType === 'vacation';
+  const activeDests = isVacation
+    ? destinations.filter(d => (d.day || 1) === currentVacationDay)
+    : destinations;
+
+  if (activeDests.length === 0) return;
+
+  const map = getOrCreateMap();
+
+  // Single destination: just pin it on the map
+  if (activeDests.length === 1) {
+    if (directionsRenderer) { directionsRenderer.setMap(null); directionsRenderer = null; }
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ address: activeDests[0].name }, (results, status) => {
+      if (status === 'OK' && results[0]) {
+        const loc = results[0].geometry.location;
+        map.setCenter(loc);
+        map.setZoom(11);
+        if (mapMarker) mapMarker.setMap(null);
+        mapMarker = new google.maps.Marker({ map, position: loc, title: activeDests[0].name });
+        document.getElementById('map-title').textContent = activeDests[0].name.split(',')[0];
+      }
+    });
+    return;
+  }
+
+  // Multi-stop route
+  if (mapMarker) { mapMarker.setMap(null); mapMarker = null; }
   if (directionsRenderer) directionsRenderer.setMap(null);
   directionsRenderer = new google.maps.DirectionsRenderer({ draggable: true });
-  directionsRenderer.setMap(mapInstance);
+  directionsRenderer.setMap(map);
+
+  // Build stops: for vacation mode, route base → dayDests → base
+  let origin, destination, midStops;
+  if (isVacation && vacationBaseLocation) {
+    origin = vacationBaseLocation;
+    destination = vacationBaseLocation;
+    midStops = activeDests;
+  } else {
+    origin = activeDests[0].name;
+    destination = activeDests[activeDests.length - 1].name;
+    midStops = activeDests.slice(1, -1);
+  }
+
+  // Load saved via-waypoints for this trip
+  let savedVias = [];
+  try { savedVias = JSON.parse(localStorage.getItem(`sojourn_vias_${currentTripId}`) || '[]'); } catch (_) {}
+
+  const waypoints = [];
+  midStops.forEach((d, i) => {
+    const legVias = savedVias[i] || [];
+    legVias.forEach(p => waypoints.push({ location: new google.maps.LatLng(p.lat, p.lng), stopover: false }));
+    waypoints.push({ location: d.name, stopover: true });
+  });
+  // Via-waypoints for last leg
+  const lastVias = savedVias[midStops.length] || [];
+  lastVias.forEach(p => waypoints.push({ location: new google.maps.LatLng(p.lat, p.lng), stopover: false }));
 
   const service = new google.maps.DirectionsService();
   service.route({
-    origin: destinations[0].name,
-    destination: destinations[destinations.length - 1].name,
-    waypoints: destinations.slice(1, -1).map(d => ({ location: d.name, stopover: true })),
+    origin, destination, waypoints,
     optimizeWaypoints: false,
     travelMode: google.maps.TravelMode.DRIVING
   }, (result, status) => {
     if (status === google.maps.DirectionsStatus.OK) {
       directionsRenderer.setDirections(result);
-      mapDiv.style.display = 'block';
-      ph.style.display = 'none';
 
-      const from = destinations[0].name.split(',')[0];
-      const to = destinations[destinations.length - 1].name.split(',')[0];
-      document.getElementById('map-title').textContent = `${from} → ${to}`;
+      const fromLabel = isVacation && vacationBaseLocation
+        ? vacationBaseLocation.split(',')[0]
+        : activeDests[0].name.split(',')[0];
+      const toLabel = isVacation && vacationBaseLocation
+        ? vacationBaseLocation.split(',')[0]
+        : activeDests[activeDests.length - 1].name.split(',')[0];
+      document.getElementById('map-title').textContent = isVacation
+        ? `Day ${currentVacationDay} — ${fromLabel}`
+        : `${fromLabel} → ${toLabel}`;
 
       if (window.innerWidth <= 768) showMobileMap();
+      applyRouteLegs(result.routes[0].legs, activeDests);
 
-      applyRouteLegs(result.routes[0].legs);
-
-      // Re-apply whenever user drags the route
       directionsRenderer.addListener('directions_changed', () => {
         const r = directionsRenderer.getDirections();
-        if (r?.routes?.[0]?.legs) applyRouteLegs(r.routes[0].legs);
+        if (!r?.routes?.[0]?.legs) return;
+        applyRouteLegs(r.routes[0].legs, activeDests);
+        // Save dragged via-waypoints to localStorage
+        const vias = r.routes[0].legs.map(l =>
+          (l.via_waypoints || []).map(p => ({ lat: p.lat(), lng: p.lng() }))
+        );
+        try { localStorage.setItem(`sojourn_vias_${currentTripId}`, JSON.stringify(vias)); } catch (_) {}
       });
     } else {
       showToast('Could not calculate route: ' + status);
@@ -2125,7 +2547,8 @@ function showRoute() {
   });
 }
 
-function applyRouteLegs(legs) {
+function applyRouteLegs(legs, activeDests) {
+  activeDests = activeDests || destinations;
   routeLegs = legs.map(l => ({ distance: l.distance.text, duration: l.duration.text }));
 
   const totalMeters = legs.reduce((s, l) => s + l.distance.value, 0);
@@ -2135,9 +2558,14 @@ function applyRouteLegs(legs) {
   const m = Math.floor((totalSecs % 3600) / 60);
   const totalTime   = h > 0 ? `${h}h ${m}m` : `${m}m`;
 
+  const isVacation = currentTripType === 'vacation';
+  const allStops = isVacation && vacationBaseLocation
+    ? [{ name: vacationBaseLocation }, ...activeDests, { name: vacationBaseLocation }]
+    : activeDests;
+
   const legChips = legs.map((l, i) => {
-    const from = (destinations[i]?.name || '').split(',')[0];
-    const to   = (destinations[i + 1]?.name || '').split(',')[0];
+    const from = (allStops[i]?.name || '').split(',')[0];
+    const to   = (allStops[i + 1]?.name || '').split(',')[0];
     return `<span class="route-sum-chip" title="${from} → ${to}"><strong>${l.distance.text}</strong> · ${l.duration.text}</span>`;
   }).join('<span class="route-sum-sep">→</span>');
 
