@@ -1243,9 +1243,19 @@ let tripDatePicker = null;
 let routeLegs = [];
 
 // ── Auth ──
+// Handle redirect result on load (for iOS in-app browsers that block popups)
+auth.getRedirectResult().catch(() => {});
+
 document.getElementById('sign-in-btn').addEventListener('click', () => {
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).catch(err => showToast('Sign-in failed: ' + err.message));
+  auth.signInWithPopup(provider).catch(err => {
+    // Popup blocked (common in iOS in-app browsers) — fall back to redirect
+    if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
+      auth.signInWithRedirect(provider);
+    } else {
+      showToast('Sign-in failed: ' + err.message);
+    }
+  });
 });
 
 auth.onAuthStateChanged(async user => {
