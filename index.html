@@ -1659,7 +1659,7 @@ async function openShareModal() {
   document.getElementById('share-modal').classList.add('open');
   // Re-fetch from Firestore so collaborator list is always current
   try {
-    const snap = await db.collection('trips').doc(currentTripId).get();
+    const snap = await db.collection('trips').doc(currentTripId).get({ source: 'server' });
     if (snap.exists) {
       const fresh = { id: snap.id, ...snap.data() };
       const idx = trips.findIndex(t => t.id === currentTripId);
