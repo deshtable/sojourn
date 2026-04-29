@@ -494,7 +494,9 @@
     min-height: 18px; margin-bottom: 4px;
   }
 
-  .notes-row { padding: 0 14px 12px; }
+  .notes-row { padding: 4px 14px 12px; }
+  .notes-btn { font-size: 11px; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 4px; padding: 1px 7px; cursor: pointer; font-family: var(--font-body); line-height: 1.6; transition: var(--transition); }
+  .notes-btn:hover { color: var(--ink-soft); border-color: var(--border-dark); }
   .notes-input {
     width: 100%;
     font-size: 12px;
@@ -1373,6 +1375,7 @@ let currentVacationDay = 1;
 let vacationBaseLocation = '';
 let vacationTotalDays = 1;
 let selectedDestIds = new Set();
+let openNoteIds = new Set();
 let pendingTripType = 'trip';
 
 // ── Auth ──
@@ -1528,6 +1531,7 @@ async function loadTrip(tripId) {
   vacationBaseLocation = tripDoc.baseLocation || '';
   currentVacationDay = 1;
   selectedDestIds = new Set();
+  openNoteIds = new Set();
   updateTripDateRange();
   updateTabLabels();
   resetMap();
@@ -2009,13 +2013,14 @@ function renderTripDestinations() {
               <span>nights</span>
             </div>
             ${dateStr ? `<span class="dest-computed-dates">${dateStr}</span>` : ''}
+            ${!isViewer ? `<button class="notes-btn" onclick="toggleNotes('${d.id}')">${openNoteIds.has(d.id) || d.notes ? '− Notes' : '+ Notes'}</button>` : ''}
           </div>
         </div>
         <div class="dest-actions">
           ${!isViewer ? `
           <button class="icon-btn ${d.hasHotel ? 'active' : ''}" title="${d.hasHotel ? 'Remove hotel' : 'Add hotel'}"
             onclick="toggleHotel('${d.id}')">🏨</button>
-          <button class="icon-btn" title="Duplicate" onclick="duplicateDest('${d.id}')">⧉</button>
+          <button class="icon-btn" title="Duplicate" onclick="duplicateDest('${d.id}')"><svg width="14" height="14" viewBox="0 0 24 24"><path fill="currentColor" d="M16 1H4C3 1 2 2 2 3v14h2V3h12V1zm3 4H8c-1 0-2 1-2 2v14c0 1 1 2 2 2h11c1 0 2-1 2-2V7c0-1-1-2-2-2zm0 16H8V7h11v14z"/></svg></button>
           <button class="icon-btn danger" onclick="removeDest('${d.id}')">✕</button>
           ` : ''}
         </div>
@@ -2026,10 +2031,11 @@ function renderTripDestinations() {
           <input class="hotel-input" value="${esc(d.hotelName || '')}" placeholder="Hotel name..."
             onchange="updateDestField('${d.id}','hotelName',this.value)" ${isViewer ? 'disabled' : ''} />
         </div>` : ''}
+      ${openNoteIds.has(d.id) || d.notes ? `
       <div class="notes-row">
         <textarea class="notes-input" rows="1" placeholder="Notes, reminders, things to do..."
           onchange="updateDestField('${d.id}','notes',this.value)" ${isViewer ? 'disabled' : ''}>${esc(d.notes || '')}</textarea>
-      </div>
+      </div>` : ''}
     </div>${connector}`;
   }).join('') + renderAddSection();
 }
@@ -2077,11 +2083,12 @@ function renderVacationItinerary() {
           <div class="dest-info">
             <input class="dest-name-input" value="${esc(d.name)}" placeholder="Place or activity"
               onchange="updateDestField('${d.id}','name',this.value)" ${isViewer ? 'disabled' : ''} />
+            ${!isViewer ? `<div class="dest-meta"><button class="notes-btn" onclick="toggleNotes('${d.id}')">${openNoteIds.has(d.id) || d.notes ? '− Notes' : '+ Notes'}</button></div>` : ''}
           </div>
           <div class="dest-actions">
             ${!isViewer ? `
             <button class="icon-btn ${d.hasHotel ? 'active' : ''}" title="${d.hasHotel ? 'Remove hotel' : 'Add hotel'}" onclick="toggleHotel('${d.id}')">🏨</button>
-            <button class="icon-btn" title="Duplicate" onclick="duplicateDest('${d.id}')">⧉</button>
+            <button class="icon-btn" title="Duplicate" onclick="duplicateDest('${d.id}')"><svg width="14" height="14" viewBox="0 0 24 24"><path fill="currentColor" d="M16 1H4C3 1 2 2 2 3v14h2V3h12V1zm3 4H8c-1 0-2 1-2 2v14c0 1 1 2 2 2h11c1 0 2-1 2-2V7c0-1-1-2-2-2zm0 16H8V7h11v14z"/></svg></button>
             <button class="icon-btn danger" onclick="removeDest('${d.id}')">✕</button>
             ` : ''}
           </div>
@@ -2092,10 +2099,11 @@ function renderVacationItinerary() {
             <input class="hotel-input" value="${esc(d.hotelName || '')}" placeholder="Hotel name..."
               onchange="updateDestField('${d.id}','hotelName',this.value)" ${isViewer ? 'disabled' : ''} />
           </div>` : ''}
+        ${openNoteIds.has(d.id) || d.notes ? `
         <div class="notes-row">
           <textarea class="notes-input" rows="1" placeholder="Notes, tips, opening hours..."
             onchange="updateDestField('${d.id}','notes',this.value)" ${isViewer ? 'disabled' : ''}>${esc(d.notes || '')}</textarea>
-        </div>
+        </div>` : ''}
       </div>`;
     }).join('');
   }
@@ -2511,6 +2519,12 @@ function clearSelection() {
   selectedDestIds = new Set();
   render();
   scheduleRoute();
+}
+
+function toggleNotes(id) {
+  if (openNoteIds.has(id)) openNoteIds.delete(id);
+  else openNoteIds.add(id);
+  render();
 }
 
 function getOrCreateMap() {
