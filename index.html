@@ -1280,9 +1280,7 @@
       </div>
     </div>
     <input class="form-input" id="new-trip-name-input" placeholder="e.g. Pacific Coast Highway, Paris 2025..." />
-    <div id="vacation-base-field" style="display:none">
-      <input class="form-input" id="new-base-location" placeholder="Base location (e.g. Paris, France)" />
-    </div>
+
     <div class="modal-cal-wrap">
       <input id="trip-date-picker" type="text" style="display:none" />
     </div>
@@ -1702,7 +1700,6 @@ function openNewTripModal() {
   pendingTripType = 'trip';
   document.getElementById('type-card-trip').classList.add('selected');
   document.getElementById('type-card-vacation').classList.remove('selected');
-  document.getElementById('vacation-base-field').style.display = 'none';
   document.getElementById('new-trip-modal').classList.add('open');
   setTimeout(() => {
     document.getElementById('new-trip-name-input').focus();
@@ -1733,8 +1730,6 @@ function openNewTripModal() {
 function closeModal() {
   document.getElementById('new-trip-modal').classList.remove('open');
   document.getElementById('new-trip-name-input').value = '';
-  const baseFld = document.getElementById('new-base-location');
-  if (baseFld) baseFld.value = '';
   if (tripDatePicker) { tripDatePicker.clear(); }
   document.getElementById('trip-range-display').textContent = '';
 }
@@ -1743,7 +1738,6 @@ function selectTripType(type) {
   pendingTripType = type;
   document.getElementById('type-card-trip').classList.toggle('selected', type === 'trip');
   document.getElementById('type-card-vacation').classList.toggle('selected', type === 'vacation');
-  document.getElementById('vacation-base-field').style.display = type === 'vacation' ? 'block' : 'none';
 }
 
 async function createNewTrip() {
@@ -1752,9 +1746,8 @@ async function createNewTrip() {
   const startDate = dates[0] ? toISODate(dates[0]) : '';
   const endDate = dates[1] ? toISODate(dates[1]) : '';
   const type = pendingTripType;
-  const baseLocation = type === 'vacation' ? (document.getElementById('new-base-location')?.value.trim() || '') : '';
   closeModal();
-  await createNewTripWithName(name, startDate, endDate, type, baseLocation);
+  await createNewTripWithName(name, startDate, endDate, type, '');
 }
 
 async function createNewTripWithName(name, startDate, endDate, type, baseLocation) {
