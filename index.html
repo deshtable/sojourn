@@ -789,26 +789,65 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ── PDF print styles ── */
+  /* ── Print document ── */
+  #print-doc { display: none; font-family: var(--font-body); color: #1C1917; }
+
   @media print {
-    #auth-screen, .topnav, .map-panel, .sidebar-top .tabs,
-    .dest-actions, .drag-handle, .open-add-btn,
-    .btn-export, .btn-route, .map-toolbar { display: none !important; }
-    .main-layout { grid-template-columns: 1fr !important; }
-    .sidebar { border: none !important; width: 100% !important; }
-    body { background: white !important; }
-    .dest-card { break-inside: avoid; }
-    .print-header { display: block !important; }
+    html, body { height: auto !important; }
+    #app, #auth-screen, .update-banner, .toast, .modal-backdrop { display: none !important; }
+    #print-doc { display: block !important; }
+    body { background: white !important; margin: 0; padding: 0; }
+    @page { size: letter portrait; margin: 0.65in 0.75in; }
   }
-  .print-header {
-    display: none;
-    text-align: center;
-    margin-bottom: 32px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid var(--border);
-  }
-  .print-header h1 { font-family: var(--font-display); font-size: 36px; margin-bottom: 6px; }
-  .print-header p { color: var(--muted); font-size: 13px; }
+
+  /* Cover */
+  .pd-cover { margin-bottom: 28px; padding-bottom: 22px; border-bottom: 1.5px solid #E7E5E4; }
+  .pd-logo-line { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .pd-logo { font-family: var(--font-display); font-size: 20px; font-style: italic; color: #4D6B53; letter-spacing: .5px; }
+  .pd-type-badge { font-size: 10px; font-weight: 500; letter-spacing: .8px; text-transform: uppercase; color: #4D6B53; background: #EDF3EE; border: 1px solid #7A9E82; border-radius: 999px; padding: 2px 9px; }
+  .pd-trip-name { font-family: var(--font-display); font-size: 48px; font-weight: 500; letter-spacing: -.5px; line-height: 1.05; color: #1C1917; margin: 0 0 8px; }
+  .pd-trip-meta { font-size: 13px; color: #A8A29E; letter-spacing: .3px; margin-bottom: 20px; }
+  .pd-map-wrap { width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid #E7E5E4; margin-bottom: 16px; background: #F5F5F0; line-height: 0; }
+  .pd-map-wrap img { width: 100%; display: block; min-height: 160px; }
+  .pd-stats { display: flex; border: 1px solid #E7E5E4; border-radius: 8px; overflow: hidden; }
+  .pd-stat { flex: 1; padding: 11px 12px; border-right: 1px solid #E7E5E4; text-align: center; }
+  .pd-stat:last-child { border-right: none; }
+  .pd-stat-val { display: block; font-family: var(--font-display); font-size: 26px; font-weight: 500; color: #1C1917; line-height: 1.1; }
+  .pd-stat-val-sm { font-size: 15px !important; padding-top: 4px; }
+  .pd-stat-label { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .8px; color: #A8A29E; margin-top: 1px; }
+
+  /* Itinerary headings */
+  .pd-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: #A8A29E; padding-bottom: 10px; border-bottom: 1px solid #E7E5E4; margin-bottom: 22px; }
+
+  /* Trip stops */
+  .pd-stop { display: flex; gap: 14px; margin-bottom: 22px; break-inside: avoid; }
+  .pd-stop-badge { width: 26px; height: 26px; border-radius: 50%; background: #4D6B53; color: white; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 4px; }
+  .pd-stop-badge.hotel { background: #1D4ED8; }
+  .pd-stop-body { flex: 1; min-width: 0; }
+  .pd-stop-name { font-family: var(--font-display); font-size: 26px; font-weight: 500; color: #1C1917; line-height: 1.15; margin-bottom: 3px; }
+  .pd-stop-dates { font-size: 12px; color: #44403C; margin-bottom: 3px; }
+  .pd-stop-hotel { font-size: 12px; color: #1D4ED8; margin-bottom: 2px; }
+  .pd-stop-notes { font-size: 12px; color: #78716C; font-style: italic; margin-top: 5px; line-height: 1.55; }
+
+  /* Leg connectors */
+  .pd-leg { display: flex; align-items: center; gap: 8px; margin: 0 0 18px 40px; color: #A8A29E; font-size: 11px; break-inside: avoid; }
+  .pd-leg-line { flex: 1; height: 1px; background: #E7E5E4; }
+  .pd-leg-info { white-space: nowrap; color: #78716C; display: flex; align-items: center; gap: 4px; }
+
+  /* Vacation mode */
+  .pd-vacation-base { font-size: 13px; color: #44403C; background: #EDF3EE; border: 1px solid #7A9E82; border-radius: 6px; padding: 8px 14px; margin-bottom: 20px; }
+  .pd-day { margin-bottom: 20px; break-inside: avoid; }
+  .pd-day-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #E7E5E4; }
+  .pd-day-num { font-family: var(--font-display); font-size: 20px; font-weight: 500; color: #4D6B53; }
+  .pd-day-date { font-size: 12px; color: #A8A29E; }
+  .pd-day-empty { font-size: 12px; color: #A8A29E; font-style: italic; padding: 6px 0; }
+  .pd-activity { display: flex; gap: 10px; margin-bottom: 10px; }
+  .pd-activity-badge { width: 20px; height: 20px; border-radius: 50%; background: #EDF3EE; border: 1px solid #7A9E82; color: #4D6B53; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .pd-activity-body { flex: 1; }
+  .pd-activity-name { font-size: 14px; font-weight: 500; color: #1C1917; margin-bottom: 2px; }
+
+  /* Footer */
+  .pd-footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #E7E5E4; font-size: 10px; color: #A8A29E; display: flex; justify-content: space-between; }
 
   /* Share button */
   .share-btn {
@@ -1117,11 +1156,8 @@
   </div>
 </div>
 
-<!-- Print Header (hidden normally) -->
-<div class="print-header">
-  <h1 id="print-trip-name">My Trip</h1>
-  <p id="print-trip-date">Sojourn Itinerary</p>
-</div>
+<!-- Print document (populated by exportPDF()) -->
+<div id="print-doc"></div>
 
 <!-- Main App -->
 <div id="app">
@@ -1485,7 +1521,6 @@ async function loadTrip(tripId) {
     currentTripRole = tripDoc.collaborators?.[currentUser.uid]?.role || 'viewer';
   }
   document.getElementById('trip-name-input').value = tripDoc.name || 'Untitled Trip';
-  document.getElementById('print-trip-name').textContent = tripDoc.name || 'Untitled Trip';
   currentTripStartDate = tripDoc.startDate || '';
   currentTripEndDate = tripDoc.endDate || '';
   currentTripType = tripDoc.type || 'trip';
@@ -1849,7 +1884,6 @@ async function removeCollaborator(uid) {
 
 // ── Trip Name ──
 function updateTripName(val) {
-  document.getElementById('print-trip-name').textContent = val || 'My Trip';
   scheduleSave();
 }
 
@@ -1885,15 +1919,11 @@ function toISODate(date) {
 
 function updateTripDateRange() {
   const el = document.getElementById('trip-date-range');
-  const printDate = document.getElementById('print-trip-date');
   if (currentTripStartDate && currentTripEndDate) {
     const days = getTotalTripDays();
-    const text = `${formatDate(currentTripStartDate)} – ${formatDate(currentTripEndDate)} · ${days} day${days !== 1 ? 's' : ''}`;
-    if (el) el.textContent = text;
-    if (printDate) printDate.textContent = text;
+    if (el) el.textContent = `${formatDate(currentTripStartDate)} – ${formatDate(currentTripEndDate)} · ${days} day${days !== 1 ? 's' : ''}`;
   } else {
     if (el) el.textContent = '';
-    if (printDate) printDate.textContent = 'Sojourn Itinerary';
   }
 }
 
@@ -2549,7 +2579,7 @@ function showRoute() {
 
 function applyRouteLegs(legs, activeDests) {
   activeDests = activeDests || destinations;
-  routeLegs = legs.map(l => ({ distance: l.distance.text, duration: l.duration.text }));
+  routeLegs = legs.map(l => ({ distance: l.distance.text, duration: l.duration.text, distanceM: l.distance.value, durationS: l.duration.value }));
 
   const totalMeters = legs.reduce((s, l) => s + l.distance.value, 0);
   const totalSecs   = legs.reduce((s, l) => s + l.duration.value, 0);
@@ -2581,10 +2611,200 @@ function applyRouteLegs(legs, activeDests) {
 }
 
 // ── PDF Export ──
-function exportPDF() {
-  document.getElementById('print-trip-date').textContent =
-    'Exported ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+async function exportPDF() {
+  const printDoc = document.getElementById('print-doc');
+  printDoc.innerHTML = buildPrintHTML();
+  const mapImg = printDoc.querySelector('#pd-map-img');
+  const mapUrl = buildStaticMapUrl();
+  if (mapImg && mapUrl) {
+    await new Promise(resolve => {
+      mapImg.onload = resolve;
+      mapImg.onerror = resolve;
+      setTimeout(resolve, 5000);
+      mapImg.src = mapUrl;
+    });
+  } else if (mapImg) {
+    mapImg.closest('.pd-map-wrap').remove();
+  }
   window.print();
+}
+
+function buildStaticMapUrl() {
+  const all = destinations;
+  if (all.length === 0 && !(currentTripType === 'vacation' && vacationBaseLocation)) return null;
+  let params = 'size=640x300&scale=2&maptype=roadmap';
+
+  // Route polyline from current directions
+  if (directionsRenderer) {
+    try {
+      const dirs = directionsRenderer.getDirections();
+      const poly = dirs?.routes?.[0]?.overview_polyline;
+      if (poly) params += `&path=weight:4%7Ccolor:0x4D6B53FF%7Cenc:${encodeURIComponent(poly)}`;
+    } catch (_) {}
+  }
+
+  if (currentTripType === 'vacation') {
+    if (vacationBaseLocation) {
+      params += `&markers=size:mid%7Ccolor:0xB45309%7Clabel:H%7C${encodeURIComponent(vacationBaseLocation)}`;
+    }
+    all.forEach((d, i) => {
+      params += `&markers=color:0x4D6B53%7Clabel:${String.fromCharCode(65 + (i % 26))}%7C${encodeURIComponent(d.name)}`;
+    });
+  } else {
+    // Prefer lat/lng from directions result for precision
+    let coordStops = null;
+    if (directionsRenderer) {
+      try {
+        const dirs = directionsRenderer.getDirections();
+        if (dirs?.routes?.[0]?.legs) {
+          const legs = dirs.routes[0].legs;
+          coordStops = [
+            ...legs.map(l => `${l.start_location.lat()},${l.start_location.lng()}`),
+            `${legs[legs.length - 1].end_location.lat()},${legs[legs.length - 1].end_location.lng()}`
+          ];
+        }
+      } catch (_) {}
+    }
+    (coordStops || all.map(d => encodeURIComponent(d.name))).forEach((s, i) => {
+      params += `&markers=color:0x4D6B53%7Clabel:${String.fromCharCode(65 + i)}%7C${s}`;
+    });
+  }
+  return `https://maps.googleapis.com/maps/api/staticmap?${params}&key=${MAPS_KEY}`;
+}
+
+function buildPrintHTML() {
+  const tripName = document.getElementById('trip-name-input')?.value || 'My Trip';
+  const isVacation = currentTripType === 'vacation';
+  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const totalDays = getTotalTripDays();
+  const dateStr = currentTripStartDate && currentTripEndDate
+    ? `${formatDate(currentTripStartDate)} – ${formatDate(currentTripEndDate)}`
+    : '';
+  const tripTypeLabel = isVacation ? 'Vacation'
+    : destinations.length > 6 ? 'Epic Tour'
+    : destinations.length > 3 ? 'Road Trip'
+    : destinations.length > 1 ? 'Multi-City'
+    : destinations.length === 1 ? 'Day Trip' : '';
+
+  const hotels = destinations.filter(d => d.hasHotel);
+  const nights = destinations.reduce((s, d) => s + (parseInt(d.nights) || 0), 0);
+  const totalM = routeLegs.reduce((s, l) => s + (l.distanceM || 0), 0);
+  const totalS = routeLegs.reduce((s, l) => s + (l.durationS || 0), 0);
+  const routeMi = totalM ? `${(totalM / 1609.34).toFixed(0)} mi` : null;
+  const routeTime = totalS
+    ? (Math.floor(totalS / 3600) > 0 ? `${Math.floor(totalS / 3600)}h ${Math.floor((totalS % 3600) / 60)}m` : `${Math.floor(totalS / 60)}m`)
+    : null;
+
+  const vacDays = isVacation ? Math.max(vacationTotalDays, totalDays || 1, destinations.length ? Math.max(...destinations.map(d => d.day || 1)) : 1) : 0;
+
+  const statsHTML = isVacation ? `
+    <div class="pd-stat"><span class="pd-stat-val">${vacDays}</span><span class="pd-stat-label">Days</span></div>
+    <div class="pd-stat"><span class="pd-stat-val">${destinations.length}</span><span class="pd-stat-label">Activities</span></div>
+    ${vacationBaseLocation ? `<div class="pd-stat"><span class="pd-stat-val pd-stat-val-sm">${esc(vacationBaseLocation.split(',')[0])}</span><span class="pd-stat-label">Based in</span></div>` : ''}
+    ${routeMi ? `<div class="pd-stat"><span class="pd-stat-val">${routeMi}</span><span class="pd-stat-label">Day dist.</span></div>` : ''}
+  ` : `
+    <div class="pd-stat"><span class="pd-stat-val">${destinations.length}</span><span class="pd-stat-label">Stops</span></div>
+    <div class="pd-stat"><span class="pd-stat-val">${hotels.length}</span><span class="pd-stat-label">Hotels</span></div>
+    <div class="pd-stat"><span class="pd-stat-val">${nights}</span><span class="pd-stat-label">Nights</span></div>
+    ${routeMi ? `<div class="pd-stat"><span class="pd-stat-val">${routeMi}</span><span class="pd-stat-label">Distance</span></div>` : ''}
+    ${routeTime ? `<div class="pd-stat"><span class="pd-stat-val pd-stat-val-sm">${routeTime}</span><span class="pd-stat-label">Drive time</span></div>` : ''}
+  `;
+
+  const metaParts = [dateStr, totalDays ? `${totalDays} days` : null, tripTypeLabel].filter(Boolean);
+
+  const cover = `
+    <div class="pd-cover">
+      <div class="pd-logo-line">
+        <span class="pd-logo">Sojourn</span>
+        ${tripTypeLabel ? `<span class="pd-type-badge">${tripTypeLabel}</span>` : ''}
+      </div>
+      <h1 class="pd-trip-name">${esc(tripName)}</h1>
+      ${metaParts.length ? `<div class="pd-trip-meta">${metaParts.join(' · ')}</div>` : ''}
+      <div class="pd-map-wrap"><img id="pd-map-img" alt="Route map" /></div>
+      <div class="pd-stats">${statsHTML}</div>
+    </div>`;
+
+  const itinerary = isVacation ? buildVacationPrintHTML() : buildTripPrintHTML();
+
+  return `${cover}${itinerary}
+    <div class="pd-footer">
+      <span>Sojourn · deshtable.github.io/sojourn</span>
+      <span>Generated ${today}</span>
+    </div>`;
+}
+
+function buildTripPrintHTML() {
+  if (destinations.length === 0) return '<p style="color:#A8A29E;text-align:center;padding:24px 0">No destinations added yet.</p>';
+  const computed = computeDates();
+  const hasLegs = routeLegs.length === destinations.length - 1;
+  let html = '<div class="pd-section-title">Itinerary</div>';
+  destinations.forEach((d, i) => {
+    const dates = computed[i];
+    const nights = parseInt(d.nights) || 0;
+    const leg = hasLegs && i < destinations.length - 1 ? routeLegs[i] : null;
+    const datesLine = dates
+      ? `${formatDateShort(dates.from)} – ${formatDateShort(dates.to)} · ${nights} night${nights !== 1 ? 's' : ''}`
+      : (nights > 0 ? `${nights} night${nights !== 1 ? 's' : ''}` : '');
+    html += `
+    <div class="pd-stop">
+      <div class="pd-stop-badge${d.hasHotel ? ' hotel' : ''}">${String.fromCharCode(65 + i)}</div>
+      <div class="pd-stop-body">
+        <div class="pd-stop-name">${esc(d.name)}</div>
+        ${datesLine ? `<div class="pd-stop-dates">${datesLine}</div>` : ''}
+        ${d.hasHotel ? `<div class="pd-stop-hotel">🏨 ${esc(d.hotelName || 'Hotel booked')}</div>` : ''}
+        ${d.notes ? `<div class="pd-stop-notes">${esc(d.notes)}</div>` : ''}
+      </div>
+    </div>`;
+    if (leg) {
+      html += `<div class="pd-leg">
+        <div class="pd-leg-line"></div>
+        <div class="pd-leg-info">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          ${leg.distance} · ${leg.duration}
+        </div>
+        <div class="pd-leg-line"></div>
+      </div>`;
+    }
+  });
+  return html;
+}
+
+function buildVacationPrintHTML() {
+  const totalDays = Math.max(vacationTotalDays, getTotalTripDays() || 1,
+    destinations.length ? Math.max(...destinations.map(d => d.day || 1)) : 1);
+  let html = '<div class="pd-section-title">Day by Day</div>';
+  if (vacationBaseLocation) {
+    html += `<div class="pd-vacation-base">📍 Staying in <strong>${esc(vacationBaseLocation)}</strong></div>`;
+  }
+  for (let day = 1; day <= totalDays; day++) {
+    const dayDests = destinations.filter(d => (d.day || 1) === day);
+    let dayDateStr = '';
+    if (currentTripStartDate) {
+      const d = new Date(currentTripStartDate + 'T12:00:00');
+      d.setDate(d.getDate() + day - 1);
+      dayDateStr = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    }
+    html += `<div class="pd-day">
+      <div class="pd-day-header">
+        <div class="pd-day-num">Day ${day}</div>
+        ${dayDateStr ? `<div class="pd-day-date">${dayDateStr}</div>` : ''}
+      </div>`;
+    if (dayDests.length === 0) {
+      html += '<div class="pd-day-empty">No activities planned</div>';
+    } else {
+      dayDests.forEach((d, i) => {
+        html += `<div class="pd-activity">
+          <div class="pd-activity-badge">${String.fromCharCode(65 + i)}</div>
+          <div class="pd-activity-body">
+            <div class="pd-activity-name">${esc(d.name)}</div>
+            ${d.notes ? `<div class="pd-stop-notes">${esc(d.notes)}</div>` : ''}
+          </div>
+        </div>`;
+      });
+    }
+    html += '</div>';
+  }
+  return html;
 }
 
 // ── Helpers ──
