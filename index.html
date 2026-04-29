@@ -2409,6 +2409,8 @@ function resetMap() {
   const ph = document.getElementById('map-placeholder');
   if (mapDiv) mapDiv.style.display = 'none';
   if (ph) ph.style.display = '';
+  const titleEl = document.getElementById('map-title');
+  if (titleEl) titleEl.textContent = '';
 }
 
 function scheduleRoute() {
@@ -2428,6 +2430,7 @@ function toggleDestSelection(id) {
   if (selectedDestIds.has(id)) selectedDestIds.delete(id);
   else selectedDestIds.add(id);
   render();
+  showRoute();
 }
 
 function renderSelectionSummary() {
@@ -2455,6 +2458,7 @@ function renderSelectionSummary() {
 function clearSelection() {
   selectedDestIds = new Set();
   render();
+  scheduleRoute();
 }
 
 function getOrCreateMap() {
@@ -2477,9 +2481,11 @@ function showRoute() {
   if (!window.google?.maps) { showToast('Maps is still loading — try again in a moment'); return; }
 
   const isVacation = currentTripType === 'vacation';
-  const activeDests = isVacation
-    ? destinations.filter(d => (d.day || 1) === currentVacationDay)
-    : destinations;
+  const activeDests = selectedDestIds.size > 0
+    ? destinations.filter(d => selectedDestIds.has(d.id))
+    : isVacation
+      ? destinations.filter(d => (d.day || 1) === currentVacationDay)
+      : destinations;
 
   if (activeDests.length === 0) return;
 
@@ -2488,6 +2494,7 @@ function showRoute() {
   // Single destination: just pin it on the map
   if (activeDests.length === 1) {
     if (directionsRenderer) { directionsRenderer.setMap(null); directionsRenderer = null; }
+    document.getElementById('map-title').textContent = activeDests[0].name.split(',')[0];
     const geocoder = new google.maps.Geocoder();
     geocoder.geocode({ address: activeDests[0].name }, (results, status) => {
       if (status === 'OK' && results[0]) {
@@ -2496,7 +2503,6 @@ function showRoute() {
         map.setZoom(11);
         if (mapMarker) mapMarker.setMap(null);
         mapMarker = new google.maps.Marker({ map, position: loc, title: activeDests[0].name });
-        document.getElementById('map-title').textContent = activeDests[0].name.split(',')[0];
       }
     });
     return;
