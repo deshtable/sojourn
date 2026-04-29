@@ -1364,6 +1364,7 @@ let placesAutocomplete = null;
 let mapInstance = null;
 let directionsRenderer = null;
 let mapMarker = null;
+let stopMarkers = [];
 let tripDatePicker = null;
 let routeLegs = [];
 let routeTimer = null;
@@ -2079,11 +2080,18 @@ function renderVacationItinerary() {
           </div>
           <div class="dest-actions">
             ${!isViewer ? `
+            <button class="icon-btn ${d.hasHotel ? 'active' : ''}" title="${d.hasHotel ? 'Remove hotel' : 'Add hotel'}" onclick="toggleHotel('${d.id}')">🏨</button>
             <button class="icon-btn" title="Duplicate" onclick="duplicateDest('${d.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
             <button class="icon-btn danger" onclick="removeDest('${d.id}')">✕</button>
             ` : ''}
           </div>
         </div>
+        ${d.hasHotel ? `
+          <div class="hotel-row">
+            <span class="hotel-icon">🏨</span>
+            <input class="hotel-input" value="${esc(d.hotelName || '')}" placeholder="Hotel name..."
+              onchange="updateDestField('${d.id}','hotelName',this.value)" ${isViewer ? 'disabled' : ''} />
+          </div>` : ''}
         <div class="notes-row">
           <textarea class="notes-input" rows="1" placeholder="Notes, tips, opening hours..."
             onchange="updateDestField('${d.id}','notes',this.value)" ${isViewer ? 'disabled' : ''}>${esc(d.notes || '')}</textarea>
@@ -2141,7 +2149,34 @@ function renderAddSection() {
 }
 
 function renderHotels() {
-  if (currentTripType === 'vacation') return renderVacationOverview();
+  if (currentTripType === 'vacation') {
+    const hotelDests = destinations.filter(d => d.hasHotel);
+    if (hotelDests.length === 0) {
+      return `<div class="empty-state"><strong>No hotels yet</strong>Tap 🏨 on any activity in the Itinerary to mark it as a hotel stay.</div>`;
+    }
+    return hotelDests.map(d => {
+      const dayLabel = currentTripStartDate
+        ? (() => {
+            const dt = new Date(currentTripStartDate + 'T12:00:00');
+            dt.setDate(dt.getDate() + (d.day || 1) - 1);
+            return `Day ${d.day || 1} — ${dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+          })()
+        : `Day ${d.day || 1}`;
+      return `
+      <div class="hotel-card">
+        <div class="hotel-card-header">
+          <div>
+            <div class="hotel-card-name">${esc(d.hotelName) || 'Hotel stay'}</div>
+            <div class="hotel-card-dest">📍 ${esc(d.name)}</div>
+          </div>
+          <button class="icon-btn danger" onclick="toggleHotel('${d.id}')">✕</button>
+        </div>
+        <div class="hotel-card-meta">
+          <span class="meta-pill">📅 ${esc(dayLabel)}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
   const hotelDests = destinations.filter(d => d.hasHotel);
   if (hotelDests.length === 0) {
     return `<div class="empty-state"><strong>No hotels yet</strong>Toggle the 🏨 button on any destination to plan a hotel stay there.</div>`;
@@ -2419,6 +2454,7 @@ function clearRoute() {
 
 function resetMap() {
   clearRoute();
+  clearStopMarkers();
   if (directionsRenderer) { directionsRenderer.setMap(null); directionsRenderer = null; }
   if (mapMarker) { mapMarker.setMap(null); mapMarker = null; }
   const mapDiv = document.getElementById('map-div');
@@ -2493,6 +2529,47 @@ function getOrCreateMap() {
   return mapInstance;
 }
 
+function clearStopMarkers() {
+  stopMarkers.forEach(m => m.setMap(null));
+  stopMarkers = [];
+}
+
+function renderStopMarkers(result, activeDests) {
+  clearStopMarkers();
+  const legs = result.routes[0].legs;
+  const map = mapInstance;
+  // Collect one position per stop: start of first leg, then end of each leg
+  const positions = [legs[0].start_location, ...legs.map(l => l.end_location)];
+  const TOLERANCE = 0.0005;
+  const groups = [];
+  positions.forEach((pos, i) => {
+    const lat = pos.lat(), lng = pos.lng();
+    const label = String.fromCharCode(65 + i);
+    const existing = groups.find(g => Math.abs(g.lat - lat) < TOLERANCE && Math.abs(g.lng - lng) < TOLERANCE);
+    if (existing) existing.labels.push(label);
+    else groups.push({ lat, lng, labels: [label] });
+  });
+  groups.forEach(g => {
+    const text = g.labels.join('/');
+    const w = Math.max(28, 14 + text.length * 8);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="28">
+      <rect width="${w}" height="28" rx="14" fill="#4D6B53"/>
+      <text x="${w/2}" y="19" font-family="Arial,sans-serif" font-size="${text.length > 3 ? 9 : 11}" font-weight="bold" fill="white" text-anchor="middle">${text}</text>
+    </svg>`;
+    stopMarkers.push(new google.maps.Marker({
+      map,
+      position: { lat: g.lat, lng: g.lng },
+      icon: {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+        anchor: new google.maps.Point(w / 2, 14),
+        scaledSize: new google.maps.Size(w, 28),
+      },
+      title: text,
+      zIndex: 1000,
+    }));
+  });
+}
+
 function showRoute() {
   if (!window.google?.maps) { showToast('Maps is still loading — try again in a moment'); return; }
 
@@ -2526,8 +2603,9 @@ function showRoute() {
 
   // Multi-stop route
   if (mapMarker) { mapMarker.setMap(null); mapMarker = null; }
+  clearStopMarkers();
   if (directionsRenderer) directionsRenderer.setMap(null);
-  directionsRenderer = new google.maps.DirectionsRenderer({ draggable: true });
+  directionsRenderer = new google.maps.DirectionsRenderer({ draggable: true, suppressMarkers: true });
   directionsRenderer.setMap(map);
 
   // Build stops: for vacation mode, route base → dayDests → base
@@ -2564,6 +2642,7 @@ function showRoute() {
   }, (result, status) => {
     if (status === google.maps.DirectionsStatus.OK) {
       directionsRenderer.setDirections(result);
+      renderStopMarkers(result, activeDests);
 
       const fromLabel = isVacation && vacationBaseLocation
         ? vacationBaseLocation.split(',')[0]
@@ -2582,6 +2661,7 @@ function showRoute() {
         const r = directionsRenderer.getDirections();
         if (!r?.routes?.[0]?.legs) return;
         applyRouteLegs(r.routes[0].legs, activeDests);
+        renderStopMarkers(r, activeDests);
         // Save dragged via-waypoints to localStorage
         const vias = r.routes[0].legs.map(l =>
           (l.via_waypoints || []).map(p => ({ lat: p.lat(), lng: p.lng() }))
