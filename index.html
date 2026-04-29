@@ -835,16 +835,18 @@
   .pd-leg-info { white-space: nowrap; color: #78716C; display: flex; align-items: center; gap: 4px; }
 
   /* Vacation mode */
-  .pd-vacation-base { font-size: 13px; color: #44403C; background: #EDF3EE; border: 1px solid #7A9E82; border-radius: 6px; padding: 8px 14px; margin-bottom: 20px; }
-  .pd-day { margin-bottom: 20px; break-inside: avoid; }
-  .pd-day-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #E7E5E4; }
-  .pd-day-num { font-family: var(--font-display); font-size: 20px; font-weight: 500; color: #4D6B53; }
-  .pd-day-date { font-size: 12px; color: #A8A29E; }
+  .pd-vacation-base { font-size: 13px; color: #44403C; background: #EDF3EE; border: 1px solid #7A9E82; border-radius: 6px; padding: 8px 14px; margin-bottom: 24px; }
+  .pd-day { margin-bottom: 32px; }
+  .pd-day-header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 12px; padding-bottom: 9px; border-bottom: 2px solid #4D6B53; break-inside: avoid; break-after: avoid; }
+  .pd-day-num { font-family: var(--font-display); font-size: 26px; font-weight: 500; color: #4D6B53; }
+  .pd-day-date { font-size: 12px; color: #78716C; letter-spacing: .2px; }
   .pd-day-empty { font-size: 12px; color: #A8A29E; font-style: italic; padding: 6px 0; }
-  .pd-activity { display: flex; gap: 10px; margin-bottom: 10px; }
-  .pd-activity-badge { width: 20px; height: 20px; border-radius: 50%; background: #EDF3EE; border: 1px solid #7A9E82; color: #4D6B53; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .pd-day-map-wrap { border-radius: 8px; overflow: hidden; border: 1px solid #E7E5E4; margin-bottom: 16px; background: #F5F5F0; line-height: 0; break-inside: avoid; break-before: avoid; }
+  .pd-day-map { width: 100%; display: block; }
+  .pd-activity { display: flex; gap: 12px; margin-bottom: 14px; break-inside: avoid; }
+  .pd-activity-badge { width: 24px; height: 24px; border-radius: 50%; background: #4D6B53; color: white; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 3px; }
   .pd-activity-body { flex: 1; }
-  .pd-activity-name { font-size: 14px; font-weight: 500; color: #1C1917; margin-bottom: 2px; }
+  .pd-activity-name { font-family: var(--font-display); font-size: 20px; font-weight: 500; color: #1C1917; line-height: 1.15; margin-bottom: 2px; }
 
   /* Footer */
   .pd-footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #E7E5E4; font-size: 10px; color: #A8A29E; display: flex; justify-content: space-between; }
@@ -2611,21 +2613,47 @@ function applyRouteLegs(legs, activeDests) {
 }
 
 // ── PDF Export ──
+function loadPdfImage(img, url, wrapSelector) {
+  return new Promise(resolve => {
+    img.onload = resolve;
+    img.onerror = () => {
+      console.warn('[Sojourn PDF] Map failed:', url.slice(0, 80) + '…');
+      img.closest(wrapSelector)?.remove();
+      resolve();
+    };
+    setTimeout(() => { if (!img.complete) { img.closest(wrapSelector)?.remove(); resolve(); } }, 6000);
+    img.src = url;
+  });
+}
+
 async function exportPDF() {
   const printDoc = document.getElementById('print-doc');
   printDoc.innerHTML = buildPrintHTML();
-  const mapImg = printDoc.querySelector('#pd-map-img');
-  const mapUrl = buildStaticMapUrl();
-  if (mapImg && mapUrl) {
-    await new Promise(resolve => {
-      mapImg.onload = resolve;
-      mapImg.onerror = resolve;
-      setTimeout(resolve, 5000);
-      mapImg.src = mapUrl;
-    });
-  } else if (mapImg) {
-    mapImg.closest('.pd-map-wrap').remove();
+
+  const loads = [];
+
+  // Cover / overview map
+  const coverImg = printDoc.querySelector('#pd-map-img');
+  const coverUrl = buildStaticMapUrl();
+  if (coverImg && coverUrl) {
+    console.log('[Sojourn PDF] Cover map:', coverUrl);
+    loads.push(loadPdfImage(coverImg, coverUrl, '.pd-map-wrap'));
+  } else if (coverImg) {
+    coverImg.closest('.pd-map-wrap')?.remove();
   }
+
+  // Per-day maps (vacation only)
+  printDoc.querySelectorAll('.pd-day-map[data-day]').forEach(img => {
+    const day = parseInt(img.dataset.day);
+    const url = buildDayStaticMapUrl(day);
+    if (url) {
+      loads.push(loadPdfImage(img, url, '.pd-day-map-wrap'));
+    } else {
+      img.closest('.pd-day-map-wrap')?.remove();
+    }
+  });
+
+  await Promise.all(loads);
   window.print();
 }
 
@@ -2634,8 +2662,8 @@ function buildStaticMapUrl() {
   if (all.length === 0 && !(currentTripType === 'vacation' && vacationBaseLocation)) return null;
   let params = 'size=640x300&scale=2&maptype=roadmap';
 
-  // Route polyline from current directions
-  if (directionsRenderer) {
+  // Route polyline from current directions (trip mode only — vacation renderer only has one day's route)
+  if (currentTripType !== 'vacation' && directionsRenderer) {
     try {
       const dirs = directionsRenderer.getDirections();
       const poly = dirs?.routes?.[0]?.overview_polyline;
@@ -2669,7 +2697,27 @@ function buildStaticMapUrl() {
       params += `&markers=color:0x4D6B53%7Clabel:${String.fromCharCode(65 + i)}%7C${s}`;
     });
   }
-  return `https://maps.googleapis.com/maps/api/staticmap?${params}&key=${MAPS_KEY}`;
+  const url = `https://maps.googleapis.com/maps/api/staticmap?${params}&key=${MAPS_KEY}`;
+  // Static Maps API has an ~8192-char URL limit; drop polyline path if over
+  if (url.length > 8000) {
+    const noPath = params.replace(/&path=[^&]+/, '');
+    return `https://maps.googleapis.com/maps/api/staticmap?${noPath}&key=${MAPS_KEY}`;
+  }
+  return url;
+}
+
+function buildDayStaticMapUrl(day) {
+  const dayDests = destinations.filter(d => (d.day || 1) === day);
+  if (dayDests.length === 0 && !vacationBaseLocation) return null;
+  let params = 'size=640x210&scale=2&maptype=roadmap';
+  if (vacationBaseLocation) {
+    params += `&markers=size:small%7Ccolor:0xB45309%7Clabel:H%7C${encodeURIComponent(vacationBaseLocation)}`;
+  }
+  dayDests.forEach((d, i) => {
+    params += `&markers=color:0x4D6B53%7Clabel:${String.fromCharCode(65 + i)}%7C${encodeURIComponent(d.name)}`;
+  });
+  const url = `https://maps.googleapis.com/maps/api/staticmap?${params}&key=${MAPS_KEY}`;
+  return url.length > 8000 ? null : url;
 }
 
 function buildPrintHTML() {
@@ -2792,6 +2840,7 @@ function buildVacationPrintHTML() {
     if (dayDests.length === 0) {
       html += '<div class="pd-day-empty">No activities planned</div>';
     } else {
+      html += `<div class="pd-day-map-wrap"><img class="pd-day-map" data-day="${day}" alt="Day ${day} map" /></div>`;
       dayDests.forEach((d, i) => {
         html += `<div class="pd-activity">
           <div class="pd-activity-badge">${String.fromCharCode(65 + i)}</div>
