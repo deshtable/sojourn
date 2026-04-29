@@ -2014,6 +2014,7 @@ function renderTripDestinations() {
           ${!isViewer ? `
           <button class="icon-btn ${d.hasHotel ? 'active' : ''}" title="${d.hasHotel ? 'Remove hotel' : 'Add hotel'}"
             onclick="toggleHotel('${d.id}')">🏨</button>
+          <button class="icon-btn" title="Duplicate" onclick="duplicateDest('${d.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
           <button class="icon-btn danger" onclick="removeDest('${d.id}')">✕</button>
           ` : ''}
         </div>
@@ -2077,7 +2078,10 @@ function renderVacationItinerary() {
               onchange="updateDestField('${d.id}','name',this.value)" ${isViewer ? 'disabled' : ''} />
           </div>
           <div class="dest-actions">
-            ${!isViewer ? `<button class="icon-btn danger" onclick="removeDest('${d.id}')">✕</button>` : ''}
+            ${!isViewer ? `
+            <button class="icon-btn" title="Duplicate" onclick="duplicateDest('${d.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            <button class="icon-btn danger" onclick="removeDest('${d.id}')">✕</button>
+            ` : ''}
           </div>
         </div>
         <div class="notes-row">
@@ -2305,6 +2309,18 @@ function addDestination() {
   destinations.push(dest);
   showAddForm = false;
   clearRoute();
+  renderAll();
+  scheduleSave();
+  scheduleRoute();
+}
+
+function duplicateDest(id) {
+  if (currentTripRole === 'viewer') return;
+  const idx = destinations.findIndex(d => d.id === id);
+  if (idx === -1) return;
+  const clone = { ...destinations[idx], id: 'dest_' + Date.now() };
+  destinations.splice(idx + 1, 0, clone);
+  destinations.forEach((d, i) => { d.order = i; });
   renderAll();
   scheduleSave();
   scheduleRoute();
